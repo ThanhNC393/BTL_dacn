@@ -2,42 +2,43 @@ from . import db
 from pgvector.sqlalchemy import Vector
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy import Column, Integer
+from sqlalchemy import (Column, Integer, ForeignKey, String, Date, Boolean,
+                        )
 
     
 class Face_of_student(db.Model):
 
     __tablename__ = 'face_of_student'
-    id = db.Column(db.Integer, primary_key = True, autoincrement = True)
-    extracted_face = db.Column(Vector(512))
+    id = Column(Integer, primary_key = True, autoincrement = True)
+    extracted_face = Column(Vector(512))
 
-    student_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    student_id = Column(Integer, ForeignKey('user.id'))
 
 
 class Class(db.Model):
     __tablename__ = 'class'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False, unique=True)
-    estab_date = db.Column(db.Date)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), nullable=False, unique=True)
+    estab_date = Column(Date)
 
 
 
 class User(db.Model):
     __tablename__ = 'user'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
-    personal_id = db.Column(db.String(15), unique=True)
-    phone_number = db.Column(db.String(10))
-    address = db.Column(db.String(50))
-    role = db.Column(db.Integer)
-    date_of_joining = db.Column(db.Date)
-    email = db.Column(db.String(50))
-    school_id = db.Column(db.String(15), nullable = False, unique=True)
-    password_hash = db.Column(db.String(200), nullable = True)
-    first_login = db.Column(db.Boolean)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=True)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    personal_id = Column(String(15), unique=True)
+    phone_number = Column(String(10))
+    address = Column(String(50))
+    role = Column(Integer)
+    date_of_joining = Column(Date)
+    email = Column(String(50))
+    school_id = Column(String(15), unique=True)
+    password_hash = Column(String(200), nullable = True)
+    first_login = Column(Boolean)
+    class_id = Column(Integer, ForeignKey('class.id'), nullable=True)
 
     @property
     def password(self):
@@ -54,29 +55,29 @@ class User(db.Model):
 class Subject(db.Model):
     __tablename__ = 'subject'
 
-    id = db.Column(db.Integer, primary_key = True)
-    subject_name = db.Column(db.String(100))
-    number_of_credit = db.Column(db.Integer)
-    description = db.Column(db.String(300))
-    subject_id = db.Column(db.String(15), unique = True)
-    total_of_lessons = db.Column(db.Integer)
-    weight_score_1 = db.Column(db.Integer)
-    weight_score_2 = db.Column(db.Integer)
+    id = Column(Integer, primary_key = True)
+    subject_name = Column(String(100))
+    number_of_credit = Column(Integer)
+    description = Column(String(300))
+    subject_id = Column(String(15), unique = True)
+    total_of_lessons = Column(Integer)
+    weight_score_1 = Column(Integer)
+    weight_score_2 = Column(Integer)
 
 
 
 class Admin(db.Model):
     __tablename__ = 'admin'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
-    personal_id = db.Column(db.String(15))
-    phone_number = db.Column(db.String(10))
-    address = db.Column(db.String(50))
-    date_of_joining = db.Column(db.Date)
-    email = db.Column(db.String(50))
-    login_name = db.Column(db.String(10), nullable = True)
-    password_hash = db.Column(db.String(200), nullable = True)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    personal_id = Column(String(15))
+    phone_number = Column(String(10))
+    address = Column(String(50))
+    date_of_joining = Column(Date)
+    email = Column(String(50))
+    login_name = Column(String(10), nullable = True)
+    password_hash = Column(String(200), nullable = True)
 
     @property
     def password(self):
@@ -94,23 +95,24 @@ class Admin(db.Model):
 class Semester(db.Model):
     __tablename__ = 'semester'
 
-    id = db.Column(db.Integer, primary_key=True)
-    year = db.Column(db.Integer)
-    start_date = db.Column(db.Date)
-    finish_date = db.Column(db.Date)
-    status = db.Column(db.Boolean)
-    order = db.Column(db.Integer)
+    id = Column(Integer, primary_key=True)
+    year = Column(Integer)
+    start_date = Column(Date)
+    finish_date = Column(Date)
+    status = Column(Boolean)
+    order = Column(Integer)
 
 
 
 class Course(db.Model):
     __tablename__ = 'course'
 
-    id = db.Column(db.Integer, primary_key=True)
-    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'))
-    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'))
-    cost = db.Column(db.Integer)
+    id = Column(Integer, primary_key=True)
+    semester_id = Column(Integer, ForeignKey('semester.id'))
+    teacher_id = Column(Integer, ForeignKey('user.id'))
+    subject_id = Column(Integer, ForeignKey('subject.id'))
+    course_id = Column(String(20), unique=True)
+    cost = Column(Integer)
 
         
 
@@ -119,57 +121,49 @@ class Course(db.Model):
 class ClassDay(db.Model):
     __tablename__ = 'class_day'
 
-    id = db.Column(db.Integer, primary_key=True)
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'))
-    day = db.Column(db.Date)
-    status = db.Column(db.Boolean)
+    id = Column(Integer, primary_key=True)
+    course_id = Column(Integer, ForeignKey('course.id'))
+    day = Column(Date)
+    status = Column(Boolean)
 
     prior = Column(ARRAY(Integer))
 
-    
-
-# class ClassPrior(db.Model):
-#     __tablename__ = 'class_prior'
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     class_day_id = db.Column(db.Integer, db.ForeignKey('class_day.id'))
-#     order = db.Column(db.Integer)
 
 
 
 class Result(db.Model):
     __tablename__ = 'result'
 
-    id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'))
-    score_1 = db.Column(db.Integer)
-    score_2 = db.Column(db.Integer)
-    final_score = db.Column(db.Integer)
-    paid_tuition = db.Column(db.Boolean)
+    id = Column(Integer, primary_key=True)
+    student_id = Column(String(15), ForeignKey('user.school_id'))
+    course_id = Column(String(20), ForeignKey('course.course_id'))
+    score_1 = Column(Integer)
+    score_2 = Column(Integer)
+    final_score = Column(Integer)
+    paid_tuition = Column(Boolean)
 
 
 
 class DayOff(db.Model):
     __tablename__ = 'day_off'
 
-    id = db.Column(db.Integer, primary_key=True)
-    result_id = db.Column(db.Integer, db.ForeignKey('result.id'))
-    class_day_id = db.Column(db.Integer, db.ForeignKey('class_day.id'))
+    id = Column(Integer, primary_key=True)
+    result_id = Column(Integer, ForeignKey('result.id'))
+    class_day_id = Column(Integer, ForeignKey('class_day.id'))
 
 
 class Change_Info_Request(db.Model):
     __tablename__ = 'change_info_request'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
-    personal_id = db.Column(db.String(15))
-    phone_number = db.Column(db.String(10))
-    address = db.Column(db.String(50))
-    email = db.Column(db.String(50))
-    status = db.Column(db.Boolean)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    personal_id = Column(String(15))
+    phone_number = Column(String(10))
+    address = Column(String(50))
+    email = Column(String(50))
+    status = Column(Boolean)
 
-    school_id = db.Column(db.String(15), db.ForeignKey('user.school_id'))
+    school_id = Column(String(15), ForeignKey('user.school_id'))
 
 
 
@@ -193,10 +187,8 @@ Course.class_days = db.relationship('ClassDay', back_populates='course')
 
 
 ClassDay.course = db.relationship('Course', back_populates='class_days')
-# ClassDay.class_priors = db.relationship('ClassPrior', back_populates='class_day')
 ClassDay.day_offs = db.relationship('DayOff', back_populates='class_day')
 
-# ClassPrior.class_day = db.relationship('ClassDay', back_populates='class_priors')
 
 Result.student = db.relationship('User', back_populates='results')
 Result.course = db.relationship('Course', back_populates='results')

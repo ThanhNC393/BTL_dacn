@@ -1,5 +1,7 @@
 from . import api
-from ..models import Subject, Semester, User, Course, ClassDay
+from ..models import (
+    Subject, Semester, User, Course, ClassDay, Result
+)
 from .. import db
 from flask import request, jsonify
 from datetime import datetime
@@ -40,8 +42,6 @@ def add_subject():
     return jsonify({
         "message": "done!"
     })
-
-
 
 
 
@@ -126,7 +126,7 @@ def add_course():
         teacher_id = info.get('teacher_id') or None
         teacher = User.query.filter_by(
             school_id = teacher_id,
-            role = 1
+            role = 0
         ).first()
         if not teacher:
             invalid[teacher_id]="Not existed!"
@@ -158,8 +158,9 @@ def add_course():
             cost = info.get('cost') or None
         )
         db.session.add(new_course)
-        db.session.commit()
+        db.session.flush()
 
+        new_course.course_id = f"{new_course.id}_{new_course.subject.subject_id}_{new_course.semester.year}_{new_course.semester.order}"
 
         class_days:dict = info.get('class_day') or None
 
@@ -184,3 +185,59 @@ def add_course():
     return jsonify({
         "message":"done!"
     })
+
+
+
+@api.route('/register_course', methods = ['POST'])
+def register_course():
+    
+    if not request.is_json:
+        return jsonify({
+            'error': 'not json!'
+        })
+    
+    data = request.get_json()
+    invalid = dict()
+
+    for course_id, student_ids in data.items():
+        for student_id in student_ids:
+            result = Result.query.filter_by(
+                student_id =  student_id,
+                course_id = course_id
+            ).first()
+            if not result:
+                new_result = Result(
+                    student_id =  student_id,
+                    course_id = course_id,
+                    paid_tuition = False
+                )
+                try:
+                    with db.session.begin_nested():
+                        db.session.add(new_result)
+                        db.session.flush()
+                except Exception as e:  
+                    invalid["error"] = str(e)
+            else:
+                invalid[f"{course_id} - {student_id}"] = "existed!"
+    db.session.commit()
+
+    if len(invalid) > 0:
+        return jsonify(invalid)
+
+    return jsonify({
+        "message": "done!"
+    })
+
+
+
+@api.route('/enter_score')
+def enter_score():
+
+    if not request.is_json:
+        return jsonify({
+            "error":"not json!"
+        })
+    
+    data = request.get_json()
+
+    # for 

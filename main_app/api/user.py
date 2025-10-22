@@ -3,11 +3,12 @@ from .. import db
 from ..models import User, Class, Change_Info_Request
 from flask import jsonify, request
 from datetime import datetime
-import psycopg2
 
 
-@api.route('/sign_', methods=['POST'])
-def sign_teachers():
+
+
+@api.route('/register_teacher', methods=['POST'])
+def register_teachers():
 
     if not request.is_json :
         return jsonify({
@@ -80,8 +81,8 @@ def get_teachers():
     })
 
 
-@api.route('/sign_student', methods = ['POST'])
-def sign_students():
+@api.route('/register_student', methods = ['POST'])
+def register_students():
     if not request.is_json :
         return jsonify({
             "error": "not json!"
@@ -96,29 +97,30 @@ def sign_students():
             invalid[val['personal_id']] = "Not have this class!"
             continue
         new_student = User(
-            name = val['name'],
-            personal_id = val['personal_id'],
-            phone_number = val['phone_number'],
-            address = val['address'],
-            date_of_joining = val['date_of_joining'],
-            email = val['email'],
+            name = val['name'] or None,
+            personal_id = val['personal_id'] or None,
+            phone_number = val['phone_number'] or None,
+            address = val['address']or None,
+            date_of_joining = val['date_of_joining']or None,
+            email = val['email'] or None,
             class_id = clss.id,
             role = 1,
             first_login = 1
         )
         date = datetime.strptime(new_student.date_of_joining, '%d/%m/%Y')
-        db.session.add(new_student)
 
         try:
-            db.session.flush()
+            with db.session.begin_nested():
+                db.session.add(new_student)
+                db.session.flush()
         except:
-            db.session.rollback()
+            # db.session.rollback()
             invalid[val['personal_id']] = "This personal id is existed!"
             continue
 
         new_student.school_id = f"{date.year}SV{new_student.id}"
         new_student.password = f"{date.day}{date.month}{date.year}"
-        db.session.commit()
+    db.session.commit()
 
     if len(invalid) != 0:
         return jsonify(invalid)
@@ -239,6 +241,7 @@ def change_info():
     })
 
 
+
 @api.route('/request_change_info', methods = ['POST'])
 def request_change_info():
 
@@ -273,6 +276,7 @@ def request_change_info():
     return jsonify({
         "message": "done!"
     })
+
 
 
 @api.route('/approve_change_request', methods = ['POST'])
