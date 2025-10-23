@@ -2,8 +2,11 @@ from . import db
 from pgvector.sqlalchemy import Vector
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy import (Column, Integer, ForeignKey, String, Date, Boolean,
-                        )
+from sqlalchemy import (
+    Column, Integer, ForeignKey, String, Date, Boolean, Float
+)
+from sqlalchemy.orm import validates 
+
 
     
 class Face_of_student(db.Model):
@@ -21,7 +24,6 @@ class Class(db.Model):
     id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=False, unique=True)
     estab_date = Column(Date)
-
 
 
 class User(db.Model):
@@ -61,9 +63,25 @@ class Subject(db.Model):
     description = Column(String(300))
     subject_id = Column(String(15), unique = True)
     total_of_lessons = Column(Integer)
-    weight_score_1 = Column(Integer)
-    weight_score_2 = Column(Integer)
+    scores = Column(ARRAY(String))
+    weights = Column(ARRAY(Integer))
 
+
+    @validates("scores", "weights")
+    def validate_score_weight(self, key, value):
+        if value is None:
+            return value
+        if key == "weights":
+            if sum(value) >= 100:
+                raise ValueError("sum of weights must be less than 100")
+            orther = self.scores
+        else: 
+            orther = value
+
+        if orther is not None:
+            if len(orther) != len(value):
+                raise ValueError("scores and weights must have the same length!")
+        return value
 
 
 class Admin(db.Model):
@@ -91,7 +109,6 @@ class Admin(db.Model):
         return check_password_hash(self.password_hash, plain_password)
 
 
-
 class Semester(db.Model):
     __tablename__ = 'semester'
 
@@ -101,7 +118,6 @@ class Semester(db.Model):
     finish_date = Column(Date)
     status = Column(Boolean)
     order = Column(Integer)
-
 
 
 class Course(db.Model):
@@ -115,9 +131,6 @@ class Course(db.Model):
     cost = Column(Integer)
 
         
-
-    
-
 class ClassDay(db.Model):
     __tablename__ = 'class_day'
 
@@ -129,19 +142,14 @@ class ClassDay(db.Model):
     prior = Column(ARRAY(Integer))
 
 
-
-
 class Result(db.Model):
     __tablename__ = 'result'
 
     id = Column(Integer, primary_key=True)
     student_id = Column(String(15), ForeignKey('user.school_id'))
     course_id = Column(String(20), ForeignKey('course.course_id'))
-    score_1 = Column(Integer)
-    score_2 = Column(Integer)
-    final_score = Column(Integer)
+    scores = Column(ARRAY(Float))
     paid_tuition = Column(Boolean)
-
 
 
 class DayOff(db.Model):

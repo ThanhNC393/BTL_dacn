@@ -130,7 +130,6 @@ def register_students():
     })
 
 
-
 @api.route('/get_students', methods = ['GET'])
 def get_students():
     if not request.is_json:
@@ -214,6 +213,8 @@ def change_info():
 
     for school_id, info in data.items():
         object = User.query.filter_by(school_id = school_id).first()
+        if not object:
+            invalid[school_id] = "Not existed this student!"
         try:
             with db.session.begin_nested():
                 object.name = info.get('name') or object.name
@@ -239,7 +240,6 @@ def change_info():
     return jsonify({
         "message": "done!"
     })
-
 
 
 @api.route('/request_change_info', methods = ['POST'])
@@ -276,7 +276,6 @@ def request_change_info():
     return jsonify({
         "message": "done!"
     })
-
 
 
 @api.route('/approve_change_request', methods = ['POST'])

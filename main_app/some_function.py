@@ -1,4 +1,8 @@
 from datetime import date, timedelta
+from flask import jsonify
+from .models import (
+    Semester, User, Subject, Course
+)
 
 
 def get_days(number_of_classday: int, date_obj: date, target_weekday: list):
@@ -16,6 +20,62 @@ def get_days(number_of_classday: int, date_obj: date, target_weekday: list):
             monday += timedelta(days=7)
             index = 0
         
+
+
+
+
+class Semester_Exception(Exception):
+    pass
+
+def check_semester(year, order):
+    semester = Semester.query.filter_by(
+        year = year or None,
+        order = order or None
+    ).first()
+    if not semester:
+        raise Semester_Exception
+    return semester
+
+
+
+
+
+class Teacher_Exception(Exception):
+    pass
+
+def check_teacher(teacher_id):
+    teacher = User.query.filter_by(
+        school_id = teacher_id,
+        role = 0
+    ).first()
+    if not teacher:
+        raise Teacher_Exception
+    return teacher
+
+
+
+
+class Subject_Exception(Exception):
+    pass
+
+def check_subject(subject_id):
+    subject = Subject.query.filter_by(
+        subject_id = subject_id
+    ).first()
+    if not subject:
+        raise Subject_Exception
+    return subject
+
+
+
+
+class Course_Exception(Exception):
+    pass
+
+def check_course(course_id):
+    course = 
+
+
 
 if __name__ == "__main__":
 
