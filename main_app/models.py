@@ -9,13 +9,27 @@ from sqlalchemy.orm import validates
 
 
     
-class Face_of_student(db.Model):
+class Account(db.Model):
 
-    __tablename__ = 'face_of_student'
+    __tablename__ = 'account'
     id = Column(Integer, primary_key = True, autoincrement = True)
     extracted_face = Column(Vector(512))
+    account_name = Column(String(15), unique = True)
+    password_hash = Column(String(200), nullable = True)
+    first_login = Column(Boolean)
 
-    student_id = Column(Integer, ForeignKey('user.id'))
+    school_id = Column(String(15), ForeignKey('user.school_id'))
+
+    @property
+    def password(self):
+        raise AttributeError('password is not a readable attribute')
+
+    @password.setter
+    def password(self, plain_password):
+        self.password_hash = generate_password_hash(plain_password)
+
+    def verify_password(self, plain_password):
+        return check_password_hash(self.password_hash, plain_password)
 
 
 class Class(db.Model):
@@ -38,20 +52,7 @@ class User(db.Model):
     date_of_joining = Column(Date)
     email = Column(String(50))
     school_id = Column(String(15), unique=True)
-    password_hash = Column(String(200), nullable = True)
-    first_login = Column(Boolean)
     class_id = Column(Integer, ForeignKey('class.id'), nullable=True)
-
-    @property
-    def password(self):
-        raise AttributeError('password is not a readable attribute')
-
-    @password.setter
-    def password(self, plain_password):
-        self.password_hash = generate_password_hash(plain_password)
-
-    def verify_password(self, plain_password):
-        return check_password_hash(self.password_hash, plain_password)
 
 
 class Subject(db.Model):
@@ -175,14 +176,14 @@ class Change_Info_Request(db.Model):
 
 
 
-Face_of_student.student = db.relationship('User', back_populates = 'face')
+Account.user = db.relationship('User', back_populates = 'account', uselist = False)
 
 Class.students = db.relationship('User', back_populates='class_')
 
 Subject.courses = db.relationship('Course', back_populates='subject')
 
 User.class_ = db.relationship('Class', back_populates='students')
-User.face = db.relationship('Face_of_student', back_populates='student')
+User.account = db.relationship('Account', back_populates='user', uselist = False)
 User.results = db.relationship('Result', back_populates='student')
 
 Semester.courses = db.relationship('Course', back_populates='semester')

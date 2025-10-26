@@ -1,12 +1,12 @@
 from . import api
 from .. import db
-from ..models import User, Class, Change_Info_Request
+from ..models import User, Class, Change_Info_Request, Account
 from flask import jsonify, request
 from datetime import datetime
 
 
 
-
+#1----------
 @api.route('/register_teacher', methods=['POST'])
 def register_teachers():
 
@@ -26,20 +26,28 @@ def register_teachers():
             date_of_joining = val['date_of_joining'],
             email = val['email'],
             role = 0,
-            first_login = 1
         )
         date = datetime.strptime(new_teacher.date_of_joining, '%d/%m/%Y')
-        db.session.add(new_teacher)
 
         try:
-            db.session.flush()
+            with db.session.begin_nested():
+                db.session.add(new_teacher)
+                db.session.flush()
         except:
-            db.session.rollback()
             invalid[val['personal_id']] = "This personal id is existed!"
             continue
 
         new_teacher.school_id = f"{date.year}GV{new_teacher.id}"
-        new_teacher.password = f"{date.day}{date.month}{date.year}"
+
+
+        new_account = Account(
+            account_name = new_teacher.school_id,
+            password = f"{date.day}{date.month}{date.year}",
+            school_id = new_teacher.school_id,
+            first_login = 1
+        )
+
+        db.session.add(new_account)
         db.session.commit()
     
     if len(invalid) != 0:
@@ -48,6 +56,7 @@ def register_teachers():
     return jsonify({
         "message": "done!"
     })
+
 
 
 @api.route('/get_teachers', methods = ['GET'])
@@ -79,8 +88,15 @@ def get_teachers():
             'school_id' : teacher.school_id
         } for teacher in teachers
     })
+#-----------
 
 
+
+
+
+
+
+#2----------
 @api.route('/register_student', methods = ['POST'])
 def register_students():
     if not request.is_json :
@@ -105,7 +121,6 @@ def register_students():
             email = val['email'] or None,
             class_id = clss.id,
             role = 1,
-            first_login = 1
         )
         date = datetime.strptime(new_student.date_of_joining, '%d/%m/%Y')
 
@@ -114,12 +129,20 @@ def register_students():
                 db.session.add(new_student)
                 db.session.flush()
         except:
-            # db.session.rollback()
             invalid[val['personal_id']] = "This personal id is existed!"
             continue
 
         new_student.school_id = f"{date.year}SV{new_student.id}"
-        new_student.password = f"{date.day}{date.month}{date.year}"
+
+        new_account = Account(
+            account_name = new_student.school_id,
+            password = f"{date.day}{date.month}{date.year}",
+            school_id = new_student.school_id,
+            first_login = 1
+        )
+
+        db.session.add(new_account)
+        
     db.session.commit()
 
     if len(invalid) != 0:
@@ -160,7 +183,77 @@ def get_students():
             'class_name' : student.class_.name
         } for student in students
     })
+#-----------
 
+
+@api.route('/edit_account', methods = ['PATCH'])
+def edit_account():
+    
+    if not request.is_json:
+        return jsonify({
+            "error": "not json!"
+        })
+
+    data:dict = request.get_json()
+    invalid = dict()
+
+    for school_id, info in data.items():
+        user = User.query.filter_by(school_id = school_id).first() 
+        if not user:
+            invalid[school_id] = "not have this school id"
+            continue
+
+        account = user.account
+        print(type(account))
+        if not account:
+            invalid[school_id] = "this user don't have account"
+            continue
+
+        account.extracted_face = info.get('extracted_face') or account.extracted_face
+        account.account_name = info.get('account_name') or account.account_name
+        account.password = info.get('pass_word') or account.password
+
+        if account.first_login == True:
+            account.first_login = False
+        db.session.add(account)
+    db.session.commit()
+    if len(invalid) > 0:
+        return jsonify(invalid)
+    return jsonify({
+        "message": "done!"
+    })
+
+
+
+@api.route('delete_account', methods = ['DELETE'])
+def delete_account():
+    if not request.is_json:
+        return jsonify({
+            "error": "not json!"
+        })
+
+    data:dict = request.get_json()
+    message = {"invalid":{}, "meta_data":{}, "success":[]}
+
+    for school_id in data:
+        user = User.query.filter_by(
+            school_id = school_id
+        ).first()
+
+        if not user:
+            message["invalid"][school_id] = "Not have this id!"
+            continue
+
+        account = user.account
+        if not account:
+            message["invalid"][school_id] = "This user doesn't have this account"
+            continue
+
+        db.session.delete(account)
+        message["success"].append(school_id)
+
+    db.session.commit()
+    return message
 
 
 @api.route('/add_class', methods = ['POST'])

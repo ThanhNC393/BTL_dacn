@@ -69,11 +69,15 @@ def check_subject(subject_id):
 
 
 
+
 class Course_Exception(Exception):
     pass
 
 def check_course(course_id):
-    course = 
+    course = Course.query.filter_by(course_id = course_id).first()
+    if not course:
+        raise Course_Exception
+    return course
 
 
 
