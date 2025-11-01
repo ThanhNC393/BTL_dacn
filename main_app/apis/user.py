@@ -1,13 +1,21 @@
 from . import api
 from .. import db
-from ..models import User, Class, Change_Info_Request, Account
+from ..models import (
+    User, Class, Change_Info_Request, Account,
+    User_Exception
+)
 from flask import jsonify, request
 from datetime import datetime
+# from ..some_function import (
+#     get_user,
+#     User_Exception
+# )
 
 
 
-#1----------
-@api.route('/register_teacher', methods=['POST'])
+
+#1 - quan ly tai khoan + quan ly thong tin
+@api.route('/register_teacher', methods=['POST'])#add teacher
 def register_teachers():
 
     if not request.is_json :
@@ -59,7 +67,7 @@ def register_teachers():
 
 
 
-@api.route('/get_teachers', methods = ['GET'])
+@api.route('/get_teachers', methods = ['GET'])#get teachers' information
 def get_teachers():
     if not request.is_json:
         return jsonify({
@@ -88,16 +96,10 @@ def get_teachers():
             'school_id' : teacher.school_id
         } for teacher in teachers
     })
-#-----------
 
 
 
-
-
-
-
-#2----------
-@api.route('/register_student', methods = ['POST'])
+@api.route('/register_student', methods = ['POST'])#add student
 def register_students():
     if not request.is_json :
         return jsonify({
@@ -153,7 +155,8 @@ def register_students():
     })
 
 
-@api.route('/get_students', methods = ['GET'])
+
+@api.route('/get_students', methods = ['GET'])#get students' information
 def get_students():
     if not request.is_json:
         return jsonify({
@@ -183,10 +186,76 @@ def get_students():
             'class_name' : student.class_.name
         } for student in students
     })
-#-----------
 
 
-@api.route('/edit_account', methods = ['PATCH'])
+
+@api.route('/delete_info', methods = ['DELETE'])#delete information of an user
+def delete_info():
+    if not request.is_json:
+        return jsonify({
+            "message":"not json!"
+        })
+    if not request.is_json:
+        return jsonify({
+            "error": "not json!"
+        })
+
+    data:dict = request.get_json()
+
+    from ...flasky import app
+    with app.test_request_context('/api/v1/delete_account', method = 'delete', json = data):
+        respond = delete_account().get_json()
+        deleted_account = respond.get("success")
+        for school_id in data:
+            if school_id in deleted_account:
+                user = User.query.filter_by(school_id=school_id).first()
+                db.session.delete(user)
+        db.session.commit()
+        return jsonify(respond)
+
+
+
+@api.route('/add_account', methods = ['POST'])#add account
+def add_account():
+    
+    if not request.is_json:
+        return jsonify({
+            "message":"not json!"
+        })
+    message = {
+        "invalid": dict(),
+        "meta_data": dict(),
+        "success": []
+    }
+    data = request.get_json()
+    for school_id in data:
+        try:
+            user:User = User.get_user(school_id=school_id)
+        except User_Exception:
+            message["invalid"][school_id] = "This user is not existed!"
+            continue
+        date = user.date_of_joining
+        account = Account(
+            account_name = user.school_id,
+            password = f"{date.day}{date.month}{date.year}",
+            school_id = user.school_id
+        )
+        # db.session.add(account)
+
+        with db.session.begin_nested():
+            try:
+                db.session.add(account)
+                db.session.flush()
+            except:
+                message["invalid"][school_id] = "This user has owned an account!"
+                continue
+
+        message["success"].append(school_id)
+    db.session.commit()
+    return jsonify(message)
+
+
+@api.route('/edit_account', methods = ['PATCH'])#change information of an account
 def edit_account():
     
     if not request.is_json:
@@ -225,7 +294,7 @@ def edit_account():
 
 
 
-@api.route('delete_account', methods = ['DELETE'])
+@api.route('delete_account', methods = ['DELETE'])#delete account of an user
 def delete_account():
     if not request.is_json:
         return jsonify({
@@ -253,38 +322,7 @@ def delete_account():
         message["success"].append(school_id)
 
     db.session.commit()
-    return message
-
-
-@api.route('/add_class', methods = ['POST'])
-def add_class():
-
-    if not request.is_json :
-        return jsonify({
-            "error": "not json!"
-        }), 404
-
-    data:dict = request.get_json() 
-
-    duplicate_class = dict()
-
-    for _, val in data.items():
-        if len(Class.query.filter_by(name = val['name']).all()) != 0:
-            duplicate_class[val['name']] = False
-            continue
-        class_ = Class(
-            name = val['name'],
-            estab_date = val['estab_date']
-        )
-        db.session.add(class_)
-        db.session.commit()
-
-    if len(duplicate_class) != 0:
-        return duplicate_class
-    
-    return jsonify({
-        "message": "done!"
-    })
+    return jsonify(message)
 
 
 
@@ -330,6 +368,39 @@ def change_info():
 
     if len(invalid) != 0:
         return jsonify(invalid)
+    return jsonify({
+        "message": "done!"
+    })
+#--------------------------------------------------------------------
+
+
+
+@api.route('/add_class', methods = ['POST'])
+def add_class():
+
+    if not request.is_json :
+        return jsonify({
+            "error": "not json!"
+        }), 404
+
+    data:dict = request.get_json() 
+
+    duplicate_class = dict()
+
+    for _, val in data.items():
+        if len(Class.query.filter_by(name = val['name']).all()) != 0:
+            duplicate_class[val['name']] = False
+            continue
+        class_ = Class(
+            name = val['name'],
+            estab_date = val['estab_date']
+        )
+        db.session.add(class_)
+        db.session.commit()
+
+    if len(duplicate_class) != 0:
+        return duplicate_class
+    
     return jsonify({
         "message": "done!"
     })

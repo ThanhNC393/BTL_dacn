@@ -1,5 +1,4 @@
 from . import db
-from pgvector.sqlalchemy import Vector
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import (
@@ -13,7 +12,6 @@ class Account(db.Model):
 
     __tablename__ = 'account'
     id = Column(Integer, primary_key = True, autoincrement = True)
-    extracted_face = Column(Vector(512))
     account_name = Column(String(15), unique = True)
     password_hash = Column(String(200), nullable = True)
     first_login = Column(Boolean)
@@ -40,6 +38,10 @@ class Class(db.Model):
     estab_date = Column(Date)
 
 
+
+class User_Exception(Exception):
+    pass
+
 class User(db.Model):
     __tablename__ = 'user'
 
@@ -54,6 +56,26 @@ class User(db.Model):
     school_id = Column(String(15), unique=True)
     class_id = Column(Integer, ForeignKey('class.id'), nullable=True)
 
+
+    @staticmethod
+    def get_user(school_id, role = None):
+        if role is not None:
+            teacher = User.query.filter_by(
+                school_id = school_id,
+                role = role
+            ).first()
+        else:
+            teacher = User.query.filter_by(
+                school_id = school_id
+            ).first()
+        if not teacher:
+            raise User_Exception
+        return teacher
+
+
+
+class Subject_Exception(Exception):
+    pass
 
 class Subject(db.Model):
     __tablename__ = 'subject'
@@ -73,7 +95,7 @@ class Subject(db.Model):
         if value is None:
             return value
         if key == "weights":
-            if sum(value) >= 100:
+            if value[-1] <= 0:
                 raise ValueError("sum of weights must be less than 100")
             orther = self.scores
         else: 
@@ -83,6 +105,15 @@ class Subject(db.Model):
             if len(orther) != len(value):
                 raise ValueError("scores and weights must have the same length!")
         return value
+    
+    @staticmethod
+    def get_subject(subject_id):
+        subject = Subject.query.filter_by(
+            subject_id = subject_id
+        ).first()
+        if not subject:
+            raise Subject_Exception
+        return subject
 
 
 class Admin(db.Model):
@@ -110,6 +141,9 @@ class Admin(db.Model):
         return check_password_hash(self.password_hash, plain_password)
 
 
+class Semester_Exception(Exception):
+    pass
+
 class Semester(db.Model):
     __tablename__ = 'semester'
 
@@ -119,29 +153,51 @@ class Semester(db.Model):
     finish_date = Column(Date)
     status = Column(Boolean)
     order = Column(Integer)
+    semester_id = Column(String(15), unique=True)
 
+    @staticmethod
+    def get_semester(semester_id):
+        semester = Semester.query.filter_by(
+            semester_id = semester_id
+        ).first()
+        if not semester:
+            raise Semester_Exception
+        return semester
+
+
+
+class Course_Exception(Exception):
+    pass
 
 class Course(db.Model):
     __tablename__ = 'course'
 
     id = Column(Integer, primary_key=True)
-    semester_id = Column(Integer, ForeignKey('semester.id'))
-    teacher_id = Column(Integer, ForeignKey('user.id'))
-    subject_id = Column(Integer, ForeignKey('subject.id'))
+    semester_id = Column(Integer, ForeignKey('semester.id', ondelete="SET NULL"))
+    teacher_id = Column(Integer, ForeignKey('user.id', ondelete="SET NULL"))
+    subject_id = Column(Integer, ForeignKey('subject.id', ondelete="CASCADE"))
     course_id = Column(String(20), unique=True)
     cost = Column(Integer)
+
+    def get_course(course_id):
+        course = Course.query.filter_by(course_id = course_id).first()
+        if not course:
+            raise Course_Exception
+        return course
 
         
 class ClassDay(db.Model):
     __tablename__ = 'class_day'
 
     id = Column(Integer, primary_key=True)
-    course_id = Column(Integer, ForeignKey('course.id'))
+    course_id = Column(String(20), ForeignKey('course.course_id', ondelete='CASCADE', onupdate='CASCADE'))
     day = Column(Date)
     status = Column(Boolean)
 
     prior = Column(ARRAY(Integer))
 
+class Result_Exception(Exception):
+    pass
 
 class Result(db.Model):
     __tablename__ = 'result'
@@ -151,6 +207,14 @@ class Result(db.Model):
     course_id = Column(String(20), ForeignKey('course.course_id'))
     scores = Column(ARRAY(Float))
     paid_tuition = Column(Boolean)
+
+    def get_result(course_id):
+        result = Result.query.filter_by(
+            course_id = course_id
+        ).first()
+        if not result:
+            raise Result_Exception
+        return result
 
 
 class DayOff(db.Model):
@@ -180,19 +244,19 @@ Account.user = db.relationship('User', back_populates = 'account', uselist = Fal
 
 Class.students = db.relationship('User', back_populates='class_')
 
-Subject.courses = db.relationship('Course', back_populates='subject')
+Subject.courses = db.relationship('Course', back_populates='subject', passive_deletes = True)
 
 User.class_ = db.relationship('Class', back_populates='students')
 User.account = db.relationship('Account', back_populates='user', uselist = False)
 User.results = db.relationship('Result', back_populates='student')
 
-Semester.courses = db.relationship('Course', back_populates='semester')
+Semester.courses = db.relationship('Course', back_populates='semester', passive_deletes = True)
 
 Course.semester = db.relationship('Semester', back_populates='courses')
 Course.teacher = db.relationship('User')
 Course.subject = db.relationship('Subject', back_populates='courses')
 Course.results = db.relationship('Result', back_populates='course')
-Course.class_days = db.relationship('ClassDay', back_populates='course')
+Course.class_days = db.relationship('ClassDay', back_populates='course', passive_deletes = True)
 
 
 ClassDay.course = db.relationship('Course', back_populates='class_days')
