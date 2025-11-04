@@ -77,11 +77,11 @@ def get_teachers():
     data = request.get_json()
     
     if len(data) == 0:
-        teachers = User.query.filter_by(role = 1).all()
+        teachers = User.query.filter_by(role = 0).all()
     else:
         teachers = []
         for school_id in data:
-            teacher  = User.query.filter_by(school_id = school_id, role = 1).first()
+            teacher  = User.query.filter_by(school_id = school_id, role = 0).first()
             if teacher is not None:
                 teachers.append(teacher)
 
@@ -333,7 +333,10 @@ def change_info():
             "error": "not json!"
         }), 404
     
+
     data:dict = request.get_json()
+
+
 
     if len(data) == 0:
         return jsonify({
@@ -341,6 +344,7 @@ def change_info():
         })
     
     invalid = dict()
+
 
     for school_id, info in data.items():
         object = User.query.filter_by(school_id = school_id).first()
@@ -360,8 +364,8 @@ def change_info():
                     if clss is not None:
                         object.class_id = clss.id 
                 db.session.flush()
-        except:
-            # db.session.rollback()
+        except Exception as e:
+            print(str(e))
             invalid[school_id] = "This personal id is existed!"
             continue
     db.session.commit()
@@ -440,6 +444,36 @@ def request_change_info():
     return jsonify({
         "message": "done!"
     })
+
+
+@api.route('get_request_change_info', methods = ['POST'])
+def get_request_change_info():
+    if not request.is_json:
+        return jsonify({
+            "message":"Not json"
+        }), 404
+    data = request.get_json()
+    print(data[0])
+    if len(data) == 0:
+        list_request = Change_Info_Request.query.all()
+    else:
+        list_request = Change_Info_Request.query.filter_by(school_id = data[0]).all()
+    
+    respond = [
+        {
+            "name": request.name,
+            "personal_id": request.personal_id,
+            "phone_number": request.phone_number,
+            "address": request.address,
+            "email": request.email,
+            "school_id":request.school_id,
+            "id":request.id
+        } for request in list_request
+    ]
+
+    print(respond)
+
+    return jsonify(respond), 200
 
 
 @api.route('/approve_change_request', methods = ['POST'])

@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 base_dir = os.path.abspath(os.path.dirname(__file__))
@@ -15,7 +16,8 @@ class config():
     FLASKY_MAIL_SENDER = 'Admin ThanhNC'
     FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
+    JWT_SECRET_KEY = os.environ.get('SECRETE_KEY') or 'hard to guess string'
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES')))
     @staticmethod
     def init_app(app):
         pass

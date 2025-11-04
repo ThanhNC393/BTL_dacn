@@ -3,6 +3,10 @@ from ..config import config
 from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_cors import CORS
+from flask_jwt_extended import (
+    JWTManager
+)
 
 mail = Mail()
 db = SQLAlchemy()
@@ -21,5 +25,6 @@ def create_app(config_name):
     from .apis import api
 
     app.register_blueprint(api, url_prefix = '/api/v1')
-
+    CORS(app)
+    jwt = JWTManager(app)
     return app
