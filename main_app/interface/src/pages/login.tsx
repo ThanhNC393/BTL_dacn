@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Button, Card, Alert, Form } from "react-bootstrap";
 import api from "../apis";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 interface LoginForm {
   username: string;

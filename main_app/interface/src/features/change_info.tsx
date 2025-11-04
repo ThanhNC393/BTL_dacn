@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Card, Form, Button, Row, Col } from "react-bootstrap";
-import axios from "axios";
 import api from "../apis";
 
 interface InfoData {
