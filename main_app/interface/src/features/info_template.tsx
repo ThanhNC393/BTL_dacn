@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Row, Col } from "react-bootstrap";
 import api from "../apis";
 
@@ -10,19 +10,10 @@ interface InfoData {
 
 interface tmpp {
   data_: any;
+  setNum: any;
 }
 
-// let dataStr = localStorage.getItem("info");
-// let data_;
-// if (dataStr) {
-//   data_ = JSON.parse(dataStr); // parse từ string -> object
-// } else {
-//   data_ = null;
-// }
-
-// console.log(data_.name);
-
-const MainPage: React.FC<tmpp> = ({ data_ }) => {
+const Info: React.FC<tmpp> = ({ data_, setNum }) => {
   // Khởi tạo dữ liệu 8 ô: 4 editable, 4 read-only
   const [data, setData] = useState<InfoData[]>([
     { title: "Tên", value: data_.name, editable: true },
@@ -31,9 +22,25 @@ const MainPage: React.FC<tmpp> = ({ data_ }) => {
     { title: "Số điện thoại", value: data_.phone_number, editable: true },
     { title: "Mã định danh", value: data_.personal_id, editable: true },
     { title: "Ngày gia nhập", value: data_.date_of_joining, editable: false },
-    { title: "Mã giảng viên", value: data_.school_id, editable: false },
-    // { title: "Vai trò", value: "Admin", editable: false },
   ]);
+
+  useEffect(() => {
+    // tránh việc thêm lặp lại khi data_ không đổi
+    if (!data_?.role) return;
+
+    if (Number(data_.role) === 1) {
+      setData([
+        ...data,
+        { title: "Lớp học", value: data_.class, editable: false },
+        { title: "Mã sinh viên", value: data_.school_id, editable: false },
+      ]);
+    } else if (Number(data_.role) === 0) {
+      setData([
+        ...data,
+        { title: "Mã giảng viên", value: data_.school_id, editable: false },
+      ]);
+    }
+  }, [data_]);
 
   const handleChange = (index: number, newValue: string) => {
     const newData = [...data];
@@ -42,11 +49,6 @@ const MainPage: React.FC<tmpp> = ({ data_ }) => {
   };
 
   const handleSubmit = async () => {
-    // Gom dữ liệu
-    // const payload = data.reduce((acc, item) => {
-    //   acc[item.title] = item.value;
-    //   return acc;
-    // }, {} as Record<string, string>);
     let tmp = data_.school_id;
     const payload = {
       [tmp]: {
@@ -55,35 +57,43 @@ const MainPage: React.FC<tmpp> = ({ data_ }) => {
         address: data[2].value,
         phone_number: data[3].value,
         personal_id: data[4].value,
-        date_of_joining: data[5].value,
-        school_id: data[6].value,
+        // date_of_joining: data[5].value,
+        // school_id: data[6].value,
       },
     };
 
     console.log("Payload gửi API:", payload);
-
+    let response;
     try {
-      const response = await api.post("/request_change_info", payload, {
+      response = await api.post("/request_change_info", payload, {
         headers: { "Content-Type": "application/json" },
       });
-      setData([
-        { title: "Tên", value: data_.name, editable: true },
-        { title: "Email", value: data_.email, editable: true },
-        { title: "Địa chỉ", value: data_.address, editable: true },
-        { title: "Số điện thoại", value: data_.phone_number, editable: true },
-        { title: "Mã định danh", value: data_.personal_id, editable: true },
-        {
-          title: "Ngày gia nhập",
-          value: data_.date_of_joining,
-          editable: false,
-        },
-        { title: "Mã giảng viên", value: data_.school_id, editable: false },
-        // { title: "Vai trò", value: "Admin", editable: false },
-      ]);
+      setData((prev) =>
+        prev.map((item) => {
+          switch (item.title) {
+            case "Tên":
+              return { ...item, value: data_.name };
+            case "Email":
+              return { ...item, value: data_.email };
+            case "Địa chỉ":
+              return { ...item, value: data_.address };
+            case "Số điện thoại":
+              return { ...item, value: data_.phone_number };
+            case "Mã định danh":
+              return { ...item, value: data_.personal_id };
+            default:
+              return item;
+          }
+        })
+      );
       alert("Gửi thành công: " + JSON.stringify(response.data));
+      localStorage.setItem("cir", "1");
+      setNum(localStorage.getItem("cir"));
     } catch (err: any) {
       console.error(err);
-      alert("Gửi thất bại!");
+      if (response) {
+        alert("Gửi thất bại");
+      }
     }
   };
 
@@ -116,4 +126,4 @@ const MainPage: React.FC<tmpp> = ({ data_ }) => {
   );
 };
 
-export default MainPage;
+export default Info;

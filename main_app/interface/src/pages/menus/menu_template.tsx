@@ -1,20 +1,17 @@
 import { useState } from "react";
-import MainPage from "../../features/change_info";
 import RowList from "../../features/change_info_requests";
-
-const menuItems = [
-  "Thông tin cá nhân",
-  "Yêu cầu sửa thông tin",
-  "Xem thông tin sinh viên",
-  "Xem lịch giảng dạy",
-  "Quản lý môn dạy",
-];
+import Info from "../../features/info_template";
+import SubjectManager from "../../features/manage_subject";
+import SemesterManager from "../../features/manage_semester";
 
 interface tmp {
   role_name: string;
+  menuItems: string[];
 }
 
-function Teacher_menu({ role_name }: tmp) {
+function Menu_template({ role_name, menuItems }: tmp) {
+  let [badgeCount, setBadgeCount] = useState(Number);
+
   let dataStr = localStorage.getItem("info");
   let data_;
   if (dataStr) {
@@ -22,7 +19,17 @@ function Teacher_menu({ role_name }: tmp) {
   } else {
     data_ = null;
   }
-  let pages_: any[] = [<MainPage data_={data_} />, <RowList />];
+  let pages_: any[] = [
+    <Info data_={data_} setNum={setBadgeCount} />,
+    <RowList data={data_} setNum={setBadgeCount} />,
+    2,
+    3,
+    4,
+    5,
+    6,
+    <SemesterManager />,
+    <SubjectManager />,
+  ];
 
   const [selectedButton, setSelectedButton] = useState(0);
   const [hoveredButton, setHoveredButton] = useState<number | null>(null);
@@ -38,7 +45,6 @@ function Teacher_menu({ role_name }: tmp) {
           style={{ width: "280px", flexShrink: 0 }}
         >
           <h4 className="text-center mb-4">{role_name}</h4>
-
           <nav className="nav flex-column flex-grow-1">
             {menuItems.map((item, i) => {
               const isSelected = selectedButton === i;
@@ -46,8 +52,7 @@ function Teacher_menu({ role_name }: tmp) {
 
               // Giả sử button thứ 2 có badge
               const showBadge = i === 1;
-              const badgeCount = Number(data_.cir); // số hiển thị
-
+              setBadgeCount(Number(localStorage.getItem("cir"))); // số hiển thị
               return (
                 <button
                   key={i}
@@ -99,4 +104,4 @@ function Teacher_menu({ role_name }: tmp) {
   );
 }
 
-export default Teacher_menu;
+export default Menu_template;

@@ -21,6 +21,7 @@ def add_semester():
     
     data:dict = request.get_json()
     invalid = dict()
+    dataa = []
     for info in data:
         start_date = info.get("start_date") or None
         new_semester = Semester(
@@ -39,6 +40,14 @@ def add_semester():
             with db.session.begin_nested():     
                 db.session.add(new_semester)
                 db.session.flush()
+                dataa.append(
+                    {
+                        "semester_id":new_semester.semester_id,
+                        "year":new_semester.year,
+                        "start_date":new_semester.start_date,
+                        "finish_date":new_semester.finish_date
+                    }
+                )
         except:
             invalid[f"Nam hoc {new_semester.year}-{int(new_semester.year)+1} hoc ky {new_semester.order}"] = "da ton tai!"
             continue
@@ -46,15 +55,30 @@ def add_semester():
     db.session.commit()
     
     if len(invalid) > 0:
-        return jsonify(invalid)
+        return jsonify(invalid), 401
 
-    return jsonify({
-        "message": "done!"
-    })
-
+    print(dataa)
+    return jsonify(dataa)
 
 
-@api.route('/change_info_semester', methods = ['PATCH'])#sua thong tin hoc ky
+
+@api.route('/get_semesters')
+def get_semester():
+    all_semesters = Semester.query.all()
+
+    data = [{
+        "year" : semester.year or "",
+        "start_date" : semester.start_date.strftime("%d/%m")  or "",
+        "finish_date" : semester.finish_date.strftime("%d/%m") or "",
+        "semester_id" : semester.semester_id
+    } for semester in all_semesters]
+    print(data)
+
+    return jsonify(data), 200
+
+
+
+@api.route('/change_info_semester', methods = ['PATCH', 'POST'])#sua thong tin hoc ky
 def change_info_semester():
     if not request.is_json:
         return jsonify({
@@ -102,7 +126,7 @@ def change_info_semester():
 
 
 
-@api.route('/delete_semester', methods = ['DELETE'])#xoa hoc ky
+@api.route('/delete_semester', methods = ['POST', 'DELETE'])#xoa hoc ky
 def delete_semester():
     if not request.is_json:
         return jsonify({
@@ -110,6 +134,8 @@ def delete_semester():
         }), 404
     
     data:dict = request.get_json()
+
+    print(data)
 
     message = {
         "invalid":dict(),
@@ -368,7 +394,7 @@ def add_subject():
     db.session.commit()
     
     if len(invalid) > 0:
-        return jsonify(invalid)
+        return jsonify(invalid), 401
 
     return jsonify({
         "message": "done!"
@@ -427,7 +453,7 @@ def change_info_subject():
 
         
 
-@api.route('/delete_subject', methods = ['DELETE'])#xoa mon hoc
+@api.route('/delete_subject', methods = ['POST', 'DELETE'])#xoa mon hoc
 def delete_subject():
     if not request.is_json:
         return(
@@ -457,6 +483,23 @@ def delete_subject():
     
 
 
+@api.route('get_subjects', methods = ['GET'])
+def get_subject():
+    
+    all_subjects = Subject.query.all()
+
+    data = [{
+        "subject_code": subject.subject_id,
+        "number_of_credit":subject.number_of_credit or "",
+        "description":subject.description or "",
+        "total_of_lessons":subject.total_of_lessons or "",
+        "subject_name":subject.subject_name or "",
+        "scores":subject.scores or [],
+        "weights":subject.weights or []
+     } for subject in all_subjects]
+    
+
+    return jsonify(data), 200
 
 #-----------------------
 

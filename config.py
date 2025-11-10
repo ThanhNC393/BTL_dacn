@@ -17,7 +17,7 @@ class config():
     FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get('SECRETE_KEY') or 'hard to guess string'
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES')))
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES')))
     @staticmethod
     def init_app(app):
         pass

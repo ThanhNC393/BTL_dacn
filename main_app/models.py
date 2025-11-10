@@ -270,5 +270,5 @@ Result.day_offs = db.relationship('DayOff', back_populates='result')
 DayOff.result = db.relationship('Result', back_populates='day_offs')
 DayOff.class_day = db.relationship('ClassDay', back_populates='day_offs')
 
-Change_Info_Request.user = db.relationship('User', back_populates='change_info_request')
-User.change_info_request = db.relationship('Change_Info_Request', back_populates='user')
+Change_Info_Request.user = db.relationship('User', back_populates='change_info_request', uselist=False)
+User.change_info_request = db.relationship('Change_Info_Request', back_populates='user', uselist=False)

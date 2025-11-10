@@ -26,7 +26,6 @@ const LoginPage: React.FC = () => {
         });
 
         if (res.data.valid) {
-          // Token còn hạn → chuyển sang home
           navigate("/home");
         }
       } catch (err) {
@@ -61,9 +60,13 @@ const LoginPage: React.FC = () => {
       // ✅ Lưu token vào localStorage
       localStorage.setItem("access_token", response.data.token);
       localStorage.setItem("info", JSON.stringify(response.data.info));
-      // const dataStr = localStorage.getItem("info");
-
-      // localStorage.setItem("role", response.data.info.role);
+      if (JSON.stringify(response.data.cir)) {
+        localStorage.setItem("cir", response.data.cir);
+        localStorage.setItem(
+          "cir_info",
+          JSON.stringify(response.data.cir_data)
+        );
+      }
 
       // ✅ Điều hướng đến trang home
       console.log(response.data.token);
@@ -80,9 +83,9 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleRegister = () => {
-    alert("Chuyển sang trang Đăng ký...");
-  };
+  // const handleRegister = () => {
+  //   alert("Chuyển sang trang Đăng ký...");
+  // };
 
   const handleForgotPassword = () => {
     alert("Chuyển sang trang Quên mật khẩu...");
@@ -132,9 +135,9 @@ const LoginPage: React.FC = () => {
           </Button>
 
           <div className="d-flex justify-content-between mt-3">
-            <Button variant="link" className="p-0" onClick={handleRegister}>
+            {/* <Button variant="link" className="p-0" onClick={handleRegister}>
               Đăng ký
-            </Button>
+            </Button> */}
             <Button
               variant="link"
               className="p-0 text-secondary"

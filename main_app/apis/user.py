@@ -453,11 +453,10 @@ def get_request_change_info():
             "message":"Not json"
         }), 404
     data = request.get_json()
-    print(data[0])
     if len(data) == 0:
-        list_request = Change_Info_Request.query.all()
+        list_request = Change_Info_Request.query.filter_by(status=False).all()
     else:
-        list_request = Change_Info_Request.query.filter_by(school_id = data[0]).all()
+        list_request = Change_Info_Request.query.filter_by(school_id = data[0], status=False).all()
     
     respond = [
         {
@@ -510,3 +509,19 @@ def approve_change_request():
         db.session.commit()
         return respond
 
+
+
+@api.route('/reject_change_request', methods = ['POST'])
+def reject_change_request():
+    if not request.is_json :
+        return jsonify({
+            "error": "not json!"
+        }), 404
+    
+    data = request.get_json()
+    for school_id in data:
+        request_ = Change_Info_Request.query.filter_by(school_id = school_id, status=False).first()
+        if request_:
+            db.session.delete(request_)
+    db.session.commit()
+    return jsonify(), 200
