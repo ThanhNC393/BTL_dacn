@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column, Integer, ForeignKey, String, Date, Boolean, Float
 )
 from sqlalchemy.orm import validates 
+from datetime import datetime
 
 
     
@@ -30,6 +31,10 @@ class Account(db.Model):
         return check_password_hash(self.password_hash, plain_password)
 
 
+class ClassException(Exception):
+    pass
+
+
 class Class(db.Model):
     __tablename__ = 'class'
 
@@ -38,9 +43,28 @@ class Class(db.Model):
     estab_date = Column(Date)
 
 
+    # @validates("name", "estab_date")
+    # def validatee(self, key, value):
+    #     if key == "name":
+    #         year = self.estab_date
+    #         print("***", year)
+    #     else:
+    #         pass
+        # return value
+
+
+    def get_class(name):
+        class_ = Class.query.filter_by(
+            name = name
+        ).first()
+        if not class_:
+            raise ClassException
+        return class_
+
 
 class User_Exception(Exception):
     pass
+
 
 class User(db.Model):
     __tablename__ = 'user'
@@ -54,7 +78,7 @@ class User(db.Model):
     date_of_joining = Column(Date)
     email = Column(String(50))
     school_id = Column(String(15), unique=True)
-    class_id = Column(Integer, ForeignKey('class.id'), nullable=True)
+    class_id = Column(Integer, ForeignKey('class.id', ondelete = "SET NULL"), nullable=True)
 
 
     @staticmethod

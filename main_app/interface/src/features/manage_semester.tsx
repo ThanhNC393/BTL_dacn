@@ -100,7 +100,7 @@ const SemesterManager: React.FC = () => {
     if (!editKey.trim()) return alert("Chọn học kỳ để sửa!");
     try {
       const payload = { [editKey]: editSemester };
-      const res = await api.patch("/change_info_semester", payload);
+      await api.patch("/change_info_semester", payload);
       alert("Sửa học kỳ thành công!");
 
       // Nếu API trả về object chứa updated items, bạn có thể merge; nhưng để đơn giản:
@@ -157,26 +157,15 @@ const SemesterManager: React.FC = () => {
           const res = await api.post("/add_semester", semestersToAdd);
           alert("Tải CSV và thêm học kỳ thành công!");
 
-          // Nếu server trả về created items (mảng có semester_id), dùng nó
-          if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
-            const added: SemesterItem[] = (res.data as any[]).map((it) => ({
-              semester_id: String(it.semester_id),
-              data: {
-                year: String(it.year),
-                start_date: String(it.start_date),
-                finish_date: String(it.finish_date),
-              },
-            }));
-            setSemesterList((prev) => [...prev, ...added]);
-          } else {
-            // fallback: tạo semester_id tạm bằng year + timestamp offset
-            const startIdx = semesterList.length;
-            const added: SemesterItem[] = semestersToAdd.map((item, i) => ({
-              semester_id: `${item.year}_${Date.now()}_${i}`,
-              data: item,
-            }));
-            setSemesterList((prev) => [...prev, ...added]);
-          }
+          const added: SemesterItem[] = (res.data as any[]).map((it) => ({
+            semester_id: String(it.semester_id),
+            data: {
+              year: String(it.year),
+              start_date: String(it.start_date),
+              finish_date: String(it.finish_date),
+            },
+          }));
+          setSemesterList((prev) => [...prev, ...added]);
         } catch (err) {
           console.error("Lỗi khi tải CSV:", err);
           alert("Lỗi khi thêm học kỳ từ CSV!");

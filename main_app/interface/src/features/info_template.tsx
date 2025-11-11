@@ -57,15 +57,14 @@ const Info: React.FC<tmpp> = ({ data_, setNum }) => {
         address: data[2].value,
         phone_number: data[3].value,
         personal_id: data[4].value,
-        // date_of_joining: data[5].value,
-        // school_id: data[6].value,
       },
     };
 
     console.log("Payload gửi API:", payload);
     let response;
+    let urll = data_.role === 2 ? "/change_info" : "/request_change_info";
     try {
-      response = await api.post("/request_change_info", payload, {
+      response = await api.post(urll, payload, {
         headers: { "Content-Type": "application/json" },
       });
       setData((prev) =>
@@ -120,7 +119,7 @@ const Info: React.FC<tmpp> = ({ data_, setNum }) => {
       </Row>
 
       <Button className="mt-4" variant="success" onClick={handleSubmit}>
-        Yêu cầu sửa thông tin
+        {data_.role === 2 ? "Sửa thông tin" : "Yêu cầu sửa thông tin"}
       </Button>
     </div>
   );

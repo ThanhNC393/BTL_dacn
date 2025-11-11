@@ -3,13 +3,16 @@ import RowList from "../../features/change_info_requests";
 import Info from "../../features/info_template";
 import SubjectManager from "../../features/manage_subject";
 import SemesterManager from "../../features/manage_semester";
+import ClassManager from "../../features/manage_class";
+import AccountManager from "../../features/manage_info";
 
 interface tmp {
   role_name: string;
   menuItems: string[];
+  role: number;
 }
 
-function Menu_template({ role_name, menuItems }: tmp) {
+function Menu_template({ role_name, menuItems, role }: tmp) {
   let [badgeCount, setBadgeCount] = useState(Number);
 
   let dataStr = localStorage.getItem("info");
@@ -19,17 +22,42 @@ function Menu_template({ role_name, menuItems }: tmp) {
   } else {
     data_ = null;
   }
-  let pages_: any[] = [
-    <Info data_={data_} setNum={setBadgeCount} />,
-    <RowList data={data_} setNum={setBadgeCount} />,
-    2,
-    3,
-    4,
-    5,
-    6,
-    <SemesterManager />,
-    <SubjectManager />,
-  ];
+  let pages_: any[];
+
+  switch (role) {
+    case 0: {
+      pages_ = [
+        <Info data_={data_} setNum={setBadgeCount} />,
+        <RowList data={data_} setNum={setBadgeCount} />,
+        2,
+        3,
+        4,
+      ];
+      break;
+    }
+    case 1: {
+      pages_ = [
+        <Info data_={data_} setNum={setBadgeCount} />,
+        <RowList data={data_} setNum={setBadgeCount} />,
+        2,
+        3,
+        4,
+      ];
+      break;
+    }
+    default: {
+      pages_ = [
+        <Info data_={data_} setNum={setBadgeCount} />,
+        <RowList data={data_} setNum={setBadgeCount} />,
+        2,
+        3,
+        <AccountManager />,
+        <ClassManager />,
+        <SemesterManager />,
+        <SubjectManager />,
+      ];
+    }
+  }
 
   const [selectedButton, setSelectedButton] = useState(0);
   const [hoveredButton, setHoveredButton] = useState<number | null>(null);

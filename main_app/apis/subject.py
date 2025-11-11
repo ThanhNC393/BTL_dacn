@@ -44,8 +44,8 @@ def add_semester():
                     {
                         "semester_id":new_semester.semester_id,
                         "year":new_semester.year,
-                        "start_date":new_semester.start_date,
-                        "finish_date":new_semester.finish_date
+                        "start_date":new_semester.start_date.strftime("%d/%m") or "",
+                        "finish_date":new_semester.finish_date.strftime("%d/%m") or ""
                     }
                 )
         except:
@@ -557,10 +557,6 @@ def enter_score():
     return jsonify(message)
 
 
-# @api.route('/change_score', methods = ["PATCH"])#sua diem
-# def change_score():
-#     pass
-
 
 @api.route('/roll_call', methods = ["POST"])#diem danh
 def roll_call():
@@ -644,6 +640,8 @@ def change_role_call():
     pass
 
 #------------------------------------------
+
+
 
 
 

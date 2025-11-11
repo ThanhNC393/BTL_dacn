@@ -33,6 +33,7 @@ const App: React.FC = () => {
           "Xem lịch giảng dạy",
           "Quản lý môn dạy",
         ]}
+        role={0}
       />
     );
   } else if (Number(role) === 1) {
@@ -47,6 +48,7 @@ const App: React.FC = () => {
           "Quản lý môn học",
           "Đăng ký học phần",
         ]}
+        role={1}
       />
     );
   } else {
@@ -55,9 +57,8 @@ const App: React.FC = () => {
       <Menu_template
         role_name={role_name}
         menuItems={[
-          "Tạo tài khoản",
-          "Yêu cầu sửa thông tin",
           "Thông tin cá nhân",
+          "Yêu cầu sửa thông tin",
           "Xem thông tin users",
           "Quản lý thông tin users",
           "Quản lý tài khoản users",
@@ -65,6 +66,7 @@ const App: React.FC = () => {
           "Quản lý học kỳ",
           "Quản lý môn học",
         ]}
+        role={2}
       />
     );
   }

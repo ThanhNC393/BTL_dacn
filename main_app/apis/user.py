@@ -2,14 +2,10 @@ from . import api
 from .. import db
 from ..models import (
     User, Class, Change_Info_Request, Account,
-    User_Exception
+    User_Exception, ClassException
 )
 from flask import jsonify, request
 from datetime import datetime
-# from ..some_function import (
-#     get_user,
-#     User_Exception
-# )
 
 
 
@@ -25,7 +21,8 @@ def register_teachers():
 
     data:dict = request.get_json() 
     invalid = dict()
-    for _, val in data.items():
+    valid = []
+    for val in data:
         new_teacher = User(
             name = val['name'],
             personal_id = val['personal_id'],
@@ -35,7 +32,10 @@ def register_teachers():
             email = val['email'],
             role = 0,
         )
-        date = datetime.strptime(new_teacher.date_of_joining, '%d/%m/%Y')
+        try:
+            date = datetime.strptime(new_teacher.date_of_joining, '%d/%m/%Y')
+        except:
+            date = datetime.strptime(new_teacher.date_of_joining, '%Y-%m-%d')
 
         try:
             with db.session.begin_nested():
@@ -56,18 +56,27 @@ def register_teachers():
         )
 
         db.session.add(new_account)
-        db.session.commit()
-    
-    if len(invalid) != 0:
-        return jsonify(invalid)
+        valid.append({
+            "school_id": new_teacher.school_id,
+            "name": new_teacher.name,
+            "personal_id": new_teacher.personal_id,
+            "phone_number": new_teacher.phone_number,
+            "address": new_teacher.address,
+            "date_of_joining": new_teacher.date_of_joining,
+            "email": new_teacher.email,
+            "role": 0
+        })
+        
+    db.session.commit()
 
-    return jsonify({
-        "message": "done!"
-    })
+    # if len(invalid) != 0:
+    #     return jsonify(invalid)
+
+    return jsonify(valid)
 
 
 
-@api.route('/get_teachers', methods = ['GET'])#get teachers' information
+@api.route('/get_teachers', methods = ['GET', 'POST'])#get teachers' information
 def get_teachers():
     if not request.is_json:
         return jsonify({
@@ -108,8 +117,10 @@ def register_students():
 
     data:dict = request.get_json() 
     invalid = dict()
-
-    for _, val in data.items():
+    valid = []
+    if type(data) is not list:
+        data = [data]
+    for val in data:
         clss = Class.query.filter_by(name = val['class_name']).first()
         if not clss:
             invalid[val['personal_id']] = "Not have this class!"
@@ -124,7 +135,10 @@ def register_students():
             class_id = clss.id,
             role = 1,
         )
-        date = datetime.strptime(new_student.date_of_joining, '%d/%m/%Y')
+        try:
+            date = datetime.strptime(new_student.date_of_joining, '%d/%m/%Y')
+        except:
+            date = datetime.strptime(new_student.date_of_joining, '%Y-%m-%d')
 
         try:
             with db.session.begin_nested():
@@ -144,19 +158,28 @@ def register_students():
         )
 
         db.session.add(new_account)
+        valid.append({
+            "school_id": new_student.school_id,
+            "name": new_student.name,
+            "personal_id": new_student.personal_id,
+            "phone_number": new_student.phone_number,
+            "address": new_student.address,
+            "date_of_joining": new_student.date_of_joining,
+            "email": new_student.email,
+            "class_name": new_student.class_.name,
+            "role": 1
+        })
         
     db.session.commit()
 
-    if len(invalid) != 0:
-        return jsonify(invalid)
+    # if len(invalid) != 0:
+    #     return jsonify(invalid)
 
-    return jsonify({
-        "message": "done!"
-    })
+    return jsonify(valid)
 
 
 
-@api.route('/get_students', methods = ['GET'])#get students' information
+@api.route('/get_students', methods = ['GET', 'POST'])#get students' information
 def get_students():
     if not request.is_json:
         return jsonify({
@@ -189,15 +212,11 @@ def get_students():
 
 
 
-@api.route('/delete_info', methods = ['DELETE'])#delete information of an user
+@api.route('/delete_info', methods = ['DELETE', 'POST'])#delete information of an user
 def delete_info():
     if not request.is_json:
         return jsonify({
             "message":"not json!"
-        })
-    if not request.is_json:
-        return jsonify({
-            "error": "not json!"
         })
 
     data:dict = request.get_json()
@@ -255,7 +274,7 @@ def add_account():
     return jsonify(message)
 
 
-@api.route('/edit_account', methods = ['PATCH'])#change information of an account
+@api.route('/edit_account', methods = ['PATCH', 'POST'])#change information of an account
 def edit_account():
     
     if not request.is_json:
@@ -379,6 +398,9 @@ def change_info():
 
 
 
+# 2. Quan ly lop 
+
+
 @api.route('/add_class', methods = ['POST'])
 def add_class():
 
@@ -389,25 +411,120 @@ def add_class():
 
     data:dict = request.get_json() 
 
-    duplicate_class = dict()
+    invalid = []
 
     for _, val in data.items():
-        if len(Class.query.filter_by(name = val['name']).all()) != 0:
-            duplicate_class[val['name']] = False
-            continue
-        class_ = Class(
-            name = val['name'],
-            estab_date = val['estab_date']
-        )
-        db.session.add(class_)
-        db.session.commit()
 
-    if len(duplicate_class) != 0:
-        return duplicate_class
+        try:
+            class_ = Class.get_class(name = val['name'])
+        except ClassException:
+            estab_date = val.get('estab_date') or None
+            if estab_date:
+                year = datetime.strptime(estab_date,'%d/%m/%Y').year
+            else: 
+                year = None
+            name = val.get('name') or None
+            if name and year:
+                name = f'{year}{name}'
+            class_ = Class(
+                name = name,
+                estab_date = estab_date
+            )
+            db.session.add(class_)
+            db.session.flush()
+            pass
+        
+    db.session.commit()
+
+    if len(invalid) != 0:
+        return jsonify(invalid)
     
     return jsonify({
         "message": "done!"
     })
+
+
+
+@api.route('/get_class', methods = ['GET', 'POST'])
+def get_class():
+    
+    if not request.is_json:
+        return jsonify({
+            "message":"not json!"
+        }), 401
+    
+    all_classes = Class.query.all()
+    return jsonify([{
+        "name": class_.name,
+        "estab_date": class_.estab_date.strftime('%d/%m')
+    } for class_ in all_classes])
+    
+
+
+
+@api.route('/delete_class', methods = ['DELETE', 'POST'])
+def delete_class():
+    
+    if not request.is_json:
+        return jsonify({
+            "error": "not json!"
+        }), 404
+    
+    data = request.get_json()
+    invalid = []
+    for class_id in data:
+        try:
+            class_ = Class.get_class(name = class_id)
+            db.session.delete(class_)
+        except ClassException:
+            invalid.append(class_id)
+            pass
+
+    db.session.commit()
+    if len(invalid) > 0:
+        return jsonify(invalid), 200
+
+    return jsonify({
+        "message":"success!"
+    })
+
+
+
+@api.route('/change_info_class', methods = ['POST', 'PATCH'])
+def change_info_class():
+    
+    if not request.is_json:
+        return jsonify({
+            "message": "invalid!"
+        }), 404
+    
+    data = request.get_json()
+    invalid=[]
+    
+    for class_name, info in data.items():
+        try:
+            class_ = Class.get_class(name = class_name)
+            with db.session.begin_nested():
+                if (name := info.get("name")) is not None:
+                    class_.name = name
+                if (estab_date := info.get("estab_date")) is not None:
+                    class_.estab_date = estab_date
+                db.session.flush()
+        except ClassException:
+            invalid.append(class_name)
+            
+    db.session.commit()
+
+    if len(invalid)>0:
+        return jsonify(
+            invalid
+        )
+    
+    return jsonify({
+        "message":"success!"
+    })
+
+#---------------------------------------------------------------
 
 
 @api.route('/request_change_info', methods = ['POST'])
