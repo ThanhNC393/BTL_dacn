@@ -1,13 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/unnamed.png";
 import Menu_template from "./menus/menu_template";
+import api from "../apis";
 
 const App: React.FC = () => {
-  const [showMenu, setShowMenu] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkToken = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        alert("Token hết hạn hoặc không hợp lệ, ở lại login");
+        navigate("/login"); // không có token
+        return;
+      }
+
+      try {
+        const res = await api.get("/protected", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.data.valid) {
+          return;
+        }
+      } catch (err) {
+        alert("Token hết hạn hoặc không hợp lệ, ở lại login");
+        navigate("/login");
+      }
+    };
+
+    checkToken();
+  }, [navigate]);
+
+  const [showMenu, setShowMenu] = useState(false);
+  // const navigate = useNavigate();
 
   let dataStr = localStorage.getItem("info");
   let data;
@@ -59,9 +88,9 @@ const App: React.FC = () => {
         menuItems={[
           "Thông tin cá nhân",
           "Yêu cầu sửa thông tin",
-          "Xem thông tin users",
+          "Tra cứu thông tin users",
+          "Quản lý tài khoản user",
           "Quản lý thông tin users",
-          "Quản lý tài khoản users",
           "Quản lý thông tin lớp",
           "Quản lý học kỳ",
           "Quản lý môn học",

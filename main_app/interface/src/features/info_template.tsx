@@ -67,27 +67,29 @@ const Info: React.FC<tmpp> = ({ data_, setNum }) => {
       response = await api.post(urll, payload, {
         headers: { "Content-Type": "application/json" },
       });
-      setData((prev) =>
-        prev.map((item) => {
-          switch (item.title) {
-            case "Tên":
-              return { ...item, value: data_.name };
-            case "Email":
-              return { ...item, value: data_.email };
-            case "Địa chỉ":
-              return { ...item, value: data_.address };
-            case "Số điện thoại":
-              return { ...item, value: data_.phone_number };
-            case "Mã định danh":
-              return { ...item, value: data_.personal_id };
-            default:
-              return item;
-          }
-        })
-      );
+      if (data_.role != 2) {
+        setData((prev) =>
+          prev.map((item) => {
+            switch (item.title) {
+              case "Tên":
+                return { ...item, value: data_.name };
+              case "Email":
+                return { ...item, value: data_.email };
+              case "Địa chỉ":
+                return { ...item, value: data_.address };
+              case "Số điện thoại":
+                return { ...item, value: data_.phone_number };
+              case "Mã định danh":
+                return { ...item, value: data_.personal_id };
+              default:
+                return item;
+            }
+          })
+        );
+        localStorage.setItem("cir", "1");
+        setNum(localStorage.getItem("cir"));
+      }
       alert("Gửi thành công: " + JSON.stringify(response.data));
-      localStorage.setItem("cir", "1");
-      setNum(localStorage.getItem("cir"));
     } catch (err: any) {
       console.error(err);
       if (response) {
