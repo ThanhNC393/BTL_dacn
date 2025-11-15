@@ -49,6 +49,13 @@ def insert_year(date, year):
 
 
 
+def get_final_result(scores, scores_weights):
+    sum_ = 0
+    for index in range(len(scores)):
+        sum_ += scores[index]*scores_weights[index]
+    return sum_/100
+
+
 
 if __name__ == "__main__":
 

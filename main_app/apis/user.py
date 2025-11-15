@@ -240,13 +240,14 @@ def add_account():
     if not request.is_json:
         return jsonify({
             "message":"not json!"
-        })
+        }), 401
     message = {
         "invalid": dict(),
         "meta_data": dict(),
         "success": []
     }
     data = request.get_json()
+    print(data)
     for school_id in data:
         try:
             user:User = User.get_user(school_id=school_id)
@@ -272,6 +273,22 @@ def add_account():
         message["success"].append(school_id)
     db.session.commit()
     return jsonify(message)
+
+
+
+@api.route('/get_account', methods = ['GET', 'POST'])
+def get_account():
+    if not request.is_json:
+        return jsonify({
+            "message": "not json!"
+        }), 401
+    
+    accounts = Account.query.all()
+
+    return jsonify([{
+        "user_id" : account.account_name,
+    } for account in accounts]), 200
+
 
 
 @api.route('/edit_account', methods = ['PATCH', 'POST'])#change information of an account
@@ -313,7 +330,7 @@ def edit_account():
 
 
 
-@api.route('delete_account', methods = ['DELETE'])#delete account of an user
+@api.route('delete_account', methods = ['DELETE', 'POST'])#delete account of an user
 def delete_account():
     if not request.is_json:
         return jsonify({
@@ -563,6 +580,7 @@ def request_change_info():
     })
 
 
+
 @api.route('get_request_change_info', methods = ['POST'])
 def get_request_change_info():
     if not request.is_json:
@@ -590,6 +608,7 @@ def get_request_change_info():
     print(respond)
 
     return jsonify(respond), 200
+
 
 
 @api.route('/approve_change_request', methods = ['POST'])

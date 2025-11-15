@@ -552,6 +552,7 @@ def enter_score():
             for index in range(len(score_names)):
                 if (score := scores.get(score_names[index])):
                     scores_[index] = score
+            result.scores = scores_
     db.session.commit()
 
     return jsonify(message)
@@ -635,6 +636,48 @@ def roll_call():
 
 
 
+@api.route('/get_subject_of/<mode>', methods = ["POST", "GET"])
+def get_subject_of(mode):
+    if not request.is_json:
+        return jsonify({
+            "error":"not json!"
+    })
+
+    data = request.get_json()
+    id = data[0] or None
+    if id:
+        if mode == "student":
+            try:
+                users = User.get_user(school_id=id, role=1)
+            except User_Exception:
+                return jsonify({
+                    "message": "not have this student!"
+                }), 404
+            courses = db.session.query(User).outerjoin(
+                Result, User.school_id == Result.student_id
+            ).outerjoin(
+                Course, Course.course_id == Result.course_id
+            ).outerjoin(
+                Subject, Course.subject_id == Subject.id
+            ).add_column(Subject.subject_name).filter(User.school_id == users.school_id).all()
+            return jsonify([name.subject_name for name in courses])
+        else:
+            try:
+                users = User.get_user(school_id=id, role=0)
+            except User_Exception:
+                return jsonify(), 401
+            courses = db.session.query(Course).outerjoin(
+                User, User.id == Course.teacher_id,
+            ).outerjoin(
+                Subject, Course.subject_id == Subject.id
+            ).add_column(Subject.subject_name).filter(User.id == users.id).all()
+            return jsonify([name.subject_name for name in courses])
+
+    return jsonify(), 401
+
+            
+
+
 @api.route('/change_role_call', methods = ["PATCH"])#sua diem danh
 def change_role_call():
     pass
@@ -647,7 +690,7 @@ def change_role_call():
 
 
 
-@api.route('/get_result/<mode>', methods = ["GET"])#xem diem
+@api.route('/get_result/<mode>', methods = ["GET", "POST"])#xem diem
 def get_result(mode):
     
     if not request.is_json:
@@ -656,7 +699,7 @@ def get_result(mode):
         })
 
     data = request.get_json()
-    id = data.get("id") or None
+    id = data[0] or None
     if id:
         if mode == "student":
             student_result = Result.query.filter_by(student_id=id).all()
@@ -664,8 +707,25 @@ def get_result(mode):
                 return jsonify({
                     "error":"not have this student!"
                 })
+            rs = {
+                result.course.subject.subject_name:{
+                    "scores" : result.scores,
+                    "scores_name" : result.course.subject.scores,
+                    "weights": result.course.subject.weights
+                } for result in student_result
+            }
+            for _, info in rs.items():
+                if None not in info.get("scores"):
+                    from ..some_function import get_final_result
+                    tmp = get_final_result(info.get("scores"), info.get("weights"))
+                    info["scores"].append(tmp)
+                    info["scores_name"].append("tk")
+                else:
+                    info["scores"].append(None)
+                    info["scores_name"].append("tk")
+
             return jsonify({
-                result.course_id:{
+                result.course.subject.subject_name:{
                     "scores" : result.scores,
                     "scores_name" : result.course.subject.scores
                 } for result in student_result
@@ -677,11 +737,11 @@ def get_result(mode):
                     "error":"not have this course!"
                 })
             result = {
-                result.student_id:{
+                result.student.school_id:{
                     "scores" : result.scores,
                 } for result in course_result
             }
-            result["score_names"] = course_result.course.subject.scores
+            result["score_names"] = course_result[0].course.subject.scores
             return jsonify(result)
         else:
             return jsonify({
@@ -689,11 +749,11 @@ def get_result(mode):
             })
     return jsonify({
             "error":"id is invalid"
-        })
+        }), 401
     
 
 
-@api.route('/get_tkb/<mode>', methods=['GET'])#xem tkb
+@api.route('/get_tkb/<mode>', methods=['GET', "POST"])#xem tkb
 def get_tkb(mode):
     if not request.is_json:
         return jsonify({
@@ -704,7 +764,7 @@ def get_tkb(mode):
     id = data.get("id") or None
     if id:
         if mode == "student":
-            student = User.query.filter_by(school_id=id).first()
+            student = User.query.filter_by(school_id=id, role=1).first()
             if not student:
                 return jsonify({
                     id:"Not have this student!"
@@ -726,7 +786,27 @@ def get_tkb(mode):
                     row.subject_name:row.prior
                 })
             return jsonify(result)
-                    
+        else:
+            teacher = User.query.filter_by(school_id=id, role=0).first()
+            if not teacher:
+                return jsonify({
+                    id:"Not have this teacher!"
+                })
+            tkb = db.session.query(ClassDay).join(
+                ClassDay
+            ).outerjoin(
+                Subject
+            ).add_columns(
+                ClassDay.day, Course.course_id, ClassDay.prior, Subject.subject_name
+            ).filter(Course.teacher_id == teacher.id).all()
+            result = dict()
+            for row in tkb:
+                if str(row.day) not in result:
+                    result[str(row.day)]=[]
+                result[str(row.day)].append({
+                    row.subject_name:row.prior
+                })
+            return jsonify(result)
 
     return jsonify({
         "error":"id is invalid"

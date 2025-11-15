@@ -176,7 +176,7 @@ const AccountManager: React.FC = () => {
 
   return (
     <div className="container py-4">
-      <h2 className="fw-bold mb-4">Quản lý tài khoản</h2>
+      <h2 className="fw-bold mb-4">Quản lý thông tin users</h2>
 
       {/* --- CHỌN LOẠI TÀI KHOẢN --- */}
       <div className="mb-4">

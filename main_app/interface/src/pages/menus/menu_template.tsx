@@ -5,6 +5,8 @@ import SubjectManager from "../../features/manage_subject";
 import SemesterManager from "../../features/manage_semester";
 import ClassManager from "../../features/manage_class";
 import AccountManager from "../../features/manage_info";
+import AccountUserManager from "../../features/manage_account";
+import StudentTeacherLookup from "../../features/manage_tkb";
 
 interface tmp {
   role_name: string;
@@ -49,8 +51,8 @@ function Menu_template({ role_name, menuItems, role }: tmp) {
       pages_ = [
         <Info data_={data_} setNum={setBadgeCount} />,
         <RowList data={data_} setNum={setBadgeCount} />,
-        2,
-        3,
+        <StudentTeacherLookup />,
+        <AccountUserManager />,
         <AccountManager />,
         <ClassManager />,
         <SemesterManager />,
