@@ -2,6 +2,7 @@ import React, { useState, useEffect, type ChangeEvent } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Papa from "papaparse";
 import api from "../apis";
+import CourseManager from "./manage_course";
 
 interface Semester {
   year: string;
@@ -34,7 +35,7 @@ const SemesterManager: React.FC = () => {
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
-        const res = await api.get("/get_semesters");
+        const res = await api.post("/get_semesters", []);
         // --- IMPORTANT ---
         // API trả về MẢNG các object mỗi object có trường semester_id.
         // Không dùng Object.entries trên mảng (sẽ tạo keys "0","1",...) — đó chính là nguyên nhân bị chuyển thành số.
@@ -286,6 +287,7 @@ const SemesterManager: React.FC = () => {
           </>
         )}
       </div>
+      <CourseManager />
     </div>
   );
 };

@@ -38,6 +38,7 @@ export default function LookupPage() {
   // new states for subjects and results
   const [subjects, setSubjects] = useState<string[]>([]);
   const [results, setResults] = useState<StudentResult>({});
+  const [search, setSearch] = useState("");
 
   const fetchList = async () => {
     try {
@@ -56,6 +57,22 @@ export default function LookupPage() {
       console.error("fetchList error", err);
       setList({});
     }
+  };
+
+  const filteredList = Object.fromEntries(
+    Object.entries(list).filter(([id, info]) =>
+      id.toLowerCase().includes(search.toLowerCase())
+    )
+  );
+
+  const searchById = () => {
+    if (!search) return;
+    if (!list[search]) {
+      alert("Không tìm thấy mã trong danh sách đã tải!");
+      return;
+    }
+    setSelected(search);
+    fetchInfo(search);
   };
 
   const fetchInfo = async (id: string) => {
@@ -316,6 +333,22 @@ export default function LookupPage() {
         <label className="form-label">
           Chọn {mode === "teacher" ? "giảng viên" : "sinh viên"}
         </label>
+
+        {/* Ô tìm kiếm */}
+        <input
+          type="text"
+          className="form-control mb-2"
+          placeholder="Tìm theo mã (VD: 2020SV13)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        {/* Nút tìm theo mã */}
+        <button className="btn btn-success w-100 mb-3" onClick={searchById}>
+          Tìm theo mã
+        </button>
+
+        {/* Dropdown danh sách */}
         <select
           className="form-select"
           value={selected}
@@ -325,9 +358,10 @@ export default function LookupPage() {
           }}
         >
           <option value="">-- Chọn --</option>
-          {Object.keys(list).map((id) => (
+
+          {Object.keys(filteredList).map((id) => (
             <option key={id} value={id}>
-              {id} - {list[id].name}
+              {id} - {filteredList[id].name}
             </option>
           ))}
         </select>

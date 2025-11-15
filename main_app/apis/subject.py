@@ -62,7 +62,7 @@ def add_semester():
 
 
 
-@api.route('/get_semesters')
+@api.route('/get_semesters', methods = ['GET', 'POST'])
 def get_semester():
     all_semesters = Semester.query.all()
 
@@ -168,7 +168,7 @@ def add_course():
     
     data = request.get_json()
     invalid = dict()
-
+    result = dict()
     for info in data:
         semester_id = info.get('semester_id') or None
         teacher_id = info.get('teacher_id') or None
@@ -208,10 +208,18 @@ def add_course():
         db.session.add(new_course)
         db.session.flush()
 
+                
         new_course.course_id = f"{new_course.id}_{new_course.subject.subject_id}_{new_course.semester.year}_{new_course.semester.order}"
 
         class_days:dict = info.get('class_day') or None
 
+
+        result[new_course.course_id] = {
+            "semester_id": new_course.semester_id,
+            "subject_id": new_course.subject_id,
+            "teacher_id": new_course.teacher_id
+        }
+        
         days = get_days(
             number_of_classday=new_course.subject.total_of_lessons, 
             date_obj=new_course.semester.start_date, 
@@ -226,14 +234,22 @@ def add_course():
             )
             db.session.add(new_class_day)
         db.session.commit()
+        print(result    )
+    return jsonify(result)
 
-    if len(invalid) > 0:
-        return jsonify(invalid)
 
+
+@api.route('/get_courses', methods = ["GET", "POST"])
+def get_course():
+    
+    courses = Course.query.all()
     return jsonify({
-        "message":"done!"
-    })
-
+        course.course_id: {
+            "semester_id": course.semester_id,
+            "teacher_id": course.teacher_id,
+            "subject_id": course.subject_id,
+        }
+    for course in courses}), 200
 
 
 @api.route('/change_info_course', methods = ['PATCH'])#sua mon da dang ky
@@ -317,7 +333,7 @@ def change_info_course():
     
 
 
-@api.route('/delete_course', methods = ['DELETE'])#xoa mon da dang ky
+@api.route('/delete_course', methods = ['DELETE', "POST"])#xoa mon da dang ky
 def delete_course():
     if not request.is_json:
         return(
@@ -483,7 +499,7 @@ def delete_subject():
     
 
 
-@api.route('get_subjects', methods = ['GET'])
+@api.route('get_subjects', methods = ['GET', "POST"])
 def get_subject():
     
     all_subjects = Subject.query.all()

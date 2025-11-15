@@ -200,7 +200,7 @@ class Course(db.Model):
     semester_id = Column(Integer, ForeignKey('semester.id', ondelete="SET NULL"))
     teacher_id = Column(Integer, ForeignKey('user.id', ondelete="SET NULL"))
     subject_id = Column(Integer, ForeignKey('subject.id', ondelete="CASCADE"))
-    course_id = Column(String(20), unique=True)
+    course_id = Column(String(50), unique=True)
     cost = Column(Integer)
 
     def get_course(course_id):
@@ -214,7 +214,7 @@ class ClassDay(db.Model):
     __tablename__ = 'class_day'
 
     id = Column(Integer, primary_key=True)
-    course_id = Column(String(20), ForeignKey('course.course_id', ondelete='CASCADE', onupdate='CASCADE'))
+    course_id = Column(String(50), ForeignKey('course.course_id', ondelete='CASCADE', onupdate='CASCADE'))
     day = Column(Date)
     status = Column(Boolean)
 
@@ -228,7 +228,7 @@ class Result(db.Model):
 
     id = Column(Integer, primary_key=True)
     student_id = Column(String(15), ForeignKey('user.school_id'))
-    course_id = Column(String(20), ForeignKey('course.course_id'))
+    course_id = Column(String(50), ForeignKey('course.course_id'))
     scores = Column(ARRAY(Float))
     paid_tuition = Column(Boolean)
 
