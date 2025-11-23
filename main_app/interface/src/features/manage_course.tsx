@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import api from "../apis";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Papa from "papaparse";
 
 interface Teacher {
   school_id: string;
@@ -16,6 +17,14 @@ interface Semester {
   semester_id: string;
 }
 
+interface Course {
+  semester_id: string;
+  teacher_id: string;
+  subject_id: string;
+  cost: string;
+  class_day?: Record<string, number[]>;
+}
+
 export default function CourseManager() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -25,9 +34,9 @@ export default function CourseManager() {
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("");
   const [cost, setCost] = useState("");
+  const [classDayInput, setClassDayInput] = useState("");
 
   const [courses, setCourses] = useState<Record<string, any>>({});
-  const [classDayInput, setClassDayInput] = useState("");
 
   // Load teachers
   useEffect(() => {
@@ -90,7 +99,7 @@ export default function CourseManager() {
       return alert("Vui lòng chọn đầy đủ Học kỳ, Giảng viên, Môn học!");
     }
 
-    const payload = [
+    const payload: Course[] = [
       {
         semester_id: selectedSemester,
         teacher_id: selectedTeacher,
@@ -103,13 +112,7 @@ export default function CourseManager() {
     try {
       const res = await api.post("/add_course", payload);
       alert("Thêm khóa học thành công!");
-
-      // res.data là object mới, merge trực tiếp vào courses
       setCourses((prev) => ({ ...prev, ...res.data }));
-      console.log(res.data);
-      console.log(courses);
-
-      // Reset input
       setSelectedSubject("");
       setSelectedTeacher("");
       setSelectedSemester("");
@@ -127,8 +130,6 @@ export default function CourseManager() {
     try {
       await api.post("/delete_course", [id]);
       alert("Xóa khóa học thành công!");
-
-      // Cập nhật state courses
       setCourses((prev) => {
         const copy = { ...prev };
         delete copy[id];
@@ -140,8 +141,9 @@ export default function CourseManager() {
     }
   };
 
+  // Parse class day
   const parseClassDay = (text: string) => {
-    const result: any = {};
+    const result: Record<string, number[]> = {};
     if (!text.trim()) return result;
     const parts = text.split(";");
     for (let p of parts) {
@@ -159,6 +161,36 @@ export default function CourseManager() {
       result[cleanedKey] = numbers;
     }
     return result;
+  };
+
+  // --- CSV Upload ---
+  const handleCSVUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const rows = results.data as any[];
+          const payload: Course[] = rows.map((r) => ({
+            semester_id: String(r.semester_id),
+            teacher_id: String(r.teacher_id),
+            subject_id: String(r.subject_id),
+            cost: String(r.cost),
+            class_day: r.class_day ? parseClassDay(r.class_day) : {},
+          }));
+
+          const res = await api.post("/add_course", payload);
+          alert("Tải CSV và thêm khóa học thành công!");
+          setCourses((prev) => ({ ...prev, ...res.data }));
+        } catch (err) {
+          console.error("Lỗi khi tải CSV khóa học:", err);
+          alert("Lỗi khi thêm khóa học từ CSV!");
+        }
+      },
+    });
   };
 
   return (
@@ -223,15 +255,29 @@ export default function CourseManager() {
           onChange={(e) => setClassDayInput(e.target.value)}
         />
 
-        <button className="btn btn-primary mt-3" onClick={handleAddCourse}>
-          Thêm khóa học
-        </button>
+        <div className="mt-3 d-flex align-items-center">
+          <button className="btn btn-primary me-3" onClick={handleAddCourse}>
+            Thêm khóa học
+          </button>
+          <label
+            className="btn btn-secondary mb-0"
+            style={{ cursor: "pointer" }}
+          >
+            Tải CSV
+            <input
+              type="file"
+              accept=".csv"
+              hidden
+              onChange={handleCSVUpload}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Course List */}
       <h5 className="mt-4">Danh sách khóa học</h5>
       <div className="mt-2">
-        {Object.entries(courses).map(([key, item], idx) => (
+        {Object.entries(courses).map(([key, item]) => (
           <div
             key={key}
             className="p-2 border rounded d-flex justify-content-between mt-2"

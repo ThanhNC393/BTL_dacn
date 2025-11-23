@@ -121,6 +121,7 @@ def register_students():
     if type(data) is not list:
         data = [data]
     for val in data:
+        print(val, end="\n-------------------------------\n")
         clss = Class.query.filter_by(name = val['class_name']).first()
         if not clss:
             invalid[val['personal_id']] = "Not have this class!"
@@ -144,7 +145,7 @@ def register_students():
             with db.session.begin_nested():
                 db.session.add(new_student)
                 db.session.flush()
-        except:
+        except Exception as e:
             invalid[val['personal_id']] = "This personal id is existed!"
             continue
 
@@ -169,11 +170,11 @@ def register_students():
             "class_name": new_student.class_.name,
             "role": 1
         })
-        
     db.session.commit()
 
     # if len(invalid) != 0:
     #     return jsonify(invalid)
+    print(invalid)
 
     return jsonify(valid)
 

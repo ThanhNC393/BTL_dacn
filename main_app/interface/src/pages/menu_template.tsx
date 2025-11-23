@@ -1,12 +1,18 @@
 import { useState } from "react";
-import RowList from "../../features/change_info_requests";
-import Info from "../../features/info_template";
-import SubjectManager from "../../features/manage_subject";
-import SemesterManager from "../../features/manage_semester";
-import ClassManager from "../../features/manage_class";
-import AccountManager from "../../features/manage_info";
-import AccountUserManager from "../../features/manage_account";
-import StudentTeacherLookup from "../../features/manage_tkb";
+import RowList from "../features/change_info_requests";
+import Info from "../features/info_template";
+import SubjectManager from "../features/manage_subject";
+import SemesterManager from "../features/manage_semester";
+import ClassManager from "../features/manage_class";
+import AccountManager from "../features/manage_info";
+import AccountUserManager from "../features/manage_account";
+import StudentTeacherLookup from "../features/manage_tkb";
+import SearchInfo from "../feature_teacher/search_info";
+import TeacherSchedule from "../feature_teacher/get_tkb";
+import TeacherSubjects from "../feature_teacher/manage_subject";
+import StudentSchedule from "../feature_student/get_tkb";
+import StudentCourses from "../feature_student/manage_subject";
+import CourseRegistration from "../feature_student/register_coures";
 
 interface tmp {
   role_name: string;
@@ -31,9 +37,10 @@ function Menu_template({ role_name, menuItems, role }: tmp) {
       pages_ = [
         <Info data_={data_} setNum={setBadgeCount} />,
         <RowList data={data_} setNum={setBadgeCount} />,
-        2,
-        3,
-        4,
+        <SearchInfo />,
+        <TeacherSchedule />,
+        <TeacherSubjects />,
+        1,
       ];
       break;
     }
@@ -41,9 +48,9 @@ function Menu_template({ role_name, menuItems, role }: tmp) {
       pages_ = [
         <Info data_={data_} setNum={setBadgeCount} />,
         <RowList data={data_} setNum={setBadgeCount} />,
-        2,
-        3,
-        4,
+        <StudentSchedule />,
+        <StudentCourses />,
+        <CourseRegistration />,
       ];
       break;
     }

@@ -7,7 +7,7 @@ from .. import db
 from flask import request, jsonify
 from datetime import datetime
 from ..some_function import (
-    get_days, get_order, insert_year,
+    get_days, get_order, insert_year, get_final_result
 )
 
 #1. quan ly hoc ky
@@ -250,6 +250,23 @@ def get_course():
             "subject_id": course.subject_id,
         }
     for course in courses}), 200
+
+
+
+@api.route('/get_courses2', methods = ["GET", "POST"])
+def get_course2():
+    
+    courses = Course.query.all()
+    return jsonify({
+        course.course_id: {
+            "semester_id": course.semester.semester_id,
+            "teacher_id": course.teacher.name,
+            "subject_id": course.subject.subject_name,
+            
+        }
+    for course in courses}), 200
+
+
 
 
 @api.route('/change_info_course', methods = ['PATCH'])#sua mon da dang ky
@@ -525,16 +542,17 @@ def get_subject():
 
 
 #3. Quan ly ket qua hoc tap
-@api.route('/enter_score', methods = ["PATCH"])#nhap diem
+@api.route('/enter_score', methods = ["PATCH", "POST"])#nhap diem
 def enter_score():
 
     if not request.is_json:
         return jsonify({
             "error":"not json!"
-        })
+        }), 401
     
     data:dict = request.get_json()
 
+    print(data)
     message = {
         "invalid":dict(),
         "success":[],
@@ -573,6 +591,27 @@ def enter_score():
 
     return jsonify(message)
 
+
+
+@api.route('/get_score', methods = ["GET", "POST"])
+def get_score():
+    if not request.is_json:
+        return jsonify(), 401
+    data = request.get_json()
+    result = Result.query.filter_by(student_id=data[0], course_id = data[1]).first()
+    off_days = db.session.query(DayOff).outerjoin(
+        ClassDay, ClassDay.id == DayOff.class_day_id
+    ).outerjoin(
+        Result, Result.id == DayOff.result_id
+    ).outerjoin(
+        Course, Course.course_id == ClassDay.course_id
+    ).filter(Course.course_id == result.course_id, Result.id == result.id).all()
+    return jsonify({
+        "scores": result.scores,
+        "scores_name": result.course.subject.scores,
+        "final_result" : get_final_result(scores=result.scores, scores_weights=result.course.subject.weights),
+        "off_days" : (len(off_days)/int(result.course.subject.total_of_lessons)) * 100
+    })
 
 
 @api.route('/roll_call', methods = ["POST"])#diem danh
@@ -879,3 +918,84 @@ def register_course():
     return jsonify({
         "message": "done!"
     })
+
+
+
+@api.route('/get_subject2/<mode>', methods = ["POST", "GET"])
+def get_subject2(mode):
+    if not request.is_json:
+        return jsonify({
+            "error":"not json!"
+    })
+
+    data = request.get_json()
+    id = data[0] or None
+    if id:
+        if mode == "student":
+            try:
+                users = User.get_user(school_id=id, role=1)
+            except User_Exception:
+                return jsonify({
+                    "message": "not have this student!"
+                }), 404
+            courses = db.session.query(Course).outerjoin(
+                Result, Course.course_id == Result.course_id
+            ).outerjoin(
+                User, User.school_id == Result.student_id
+            ).outerjoin(
+                Subject, Course.subject_id == Subject.id
+            ).filter(User.school_id == users.school_id).all()
+            return jsonify([{
+                "course_id":course.course_id,
+                "semester":course.semester.semester_id,
+                "subject_id":course.subject_id,
+                "subject_name":course.subject.subject_name
+            }for course in courses])
+        else:
+            try:
+                users = User.get_user(school_id=id, role=0)
+            except User_Exception:
+                return jsonify(), 401
+            courses = db.session.query(Course).outerjoin(
+                User, User.id == Course.teacher_id,
+            ).outerjoin(
+                Subject, Course.subject_id == Subject.id
+            ).filter(User.id == users.id).all()
+            return jsonify([{
+                "course_id":course.course_id,
+                "semester":course.semester.semester_id,
+                "subject_id":course.subject_id,
+                "subject_name":course.subject.subject_name
+            }for course in courses])
+
+    return jsonify(), 401
+
+
+
+@api.route('/get_students_of_course', methods = ["POST", "GET"])
+def get_students_of_course():
+    if not request.is_json:
+        return jsonify({
+            "message":"not json!"
+        }), 401
+    
+
+    course_id = request.get_json()[0]
+    try:
+        course = Course.get_course(course_id=course_id)
+    except Course_Exception:
+        return jsonify(), 401
+
+    students = db.session.query(User, Result).outerjoin(
+        Result, User.school_id == Result.student_id
+    ).outerjoin(
+        Course, Course.course_id == Result.course_id
+    ).filter(Course.course_id == course_id).all()
+    # print(students)
+    return jsonify([{
+        "student_id":student.school_id,
+        "name":student.name,
+        "scores_name":result.course.subject.scores,
+        "scores":result.scores,
+        "final_result": get_final_result(scores=result.scores, scores_weights=result.course.subject.weights)
+    } for student, result in students])

@@ -50,6 +50,8 @@ def insert_year(date, year):
 
 
 def get_final_result(scores, scores_weights):
+    if None in scores:
+        return None
     sum_ = 0
     for index in range(len(scores)):
         sum_ += scores[index]*scores_weights[index]

@@ -21,45 +21,42 @@ const AccountManager: React.FC = () => {
   const [formData, setFormData] = useState<Partial<Account>>({});
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Account>>({});
+  const [searchText, setSearchText] = useState(""); // <-- Ô tìm kiếm
 
-  // --- LẤY DANH SÁCH LỚP (dropdown) ---
+  // --- LẤY DANH SÁCH LỚP ---
   useEffect(() => {
     const fetchClasses = async () => {
       try {
         const res = await api.post("/get_class", []);
         let data = res.data;
         if (!Array.isArray(data)) data = Object.values(data || {});
-        const names = data.map((cls: any) => cls.name);
-        setClassList(names);
-      } catch (err) {
-        console.error(err);
+        setClassList(data.map((cls: any) => cls.name));
+      } catch {
         setClassList([]);
       }
     };
     fetchClasses();
   }, []);
 
-  // --- LẤY DANH SÁCH TÀI KHOẢN ---
+  // --- LẤY DANH SÁCH USER ---
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
         const endpoint =
           roleType === "student" ? "/get_students" : "/get_teachers";
+
         const res = await api.post(endpoint, []);
         let data = res.data;
 
         if (!Array.isArray(data)) {
-          data = Object.entries(data || {}).map(
-            ([id, info]: [string, any]) => ({
-              school_id: id,
-              ...info,
-            })
-          );
+          data = Object.entries(data || {}).map(([id, info]: any) => ({
+            school_id: id,
+            ...info,
+          }));
         }
 
         setAccountList(data);
-      } catch (err) {
-        console.error(err);
+      } catch {
         setAccountList([]);
       }
     };
@@ -70,89 +67,81 @@ const AccountManager: React.FC = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- THÊM MỚI (1 account) ---
+  // --- THÊM MỚI ---
   const handleAdd = async () => {
     try {
       const endpoint =
         roleType === "student" ? "/register_student" : "/register_teacher";
 
       const res = await api.post(endpoint, formData);
+      const newAcc: Account[] = res.data || [];
 
-      const newAccounts: Account[] = res.data || [];
-
-      setAccountList([...accountList, ...newAccounts]);
+      setAccountList([...accountList, ...newAcc]);
       setFormData({});
       alert("Thêm thành công!");
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Lỗi khi thêm!");
     }
   };
 
-  // --- THÊM HÀNG LOẠT CSV ---
+  // --- IMPORT CSV ---
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     Papa.parse(file, {
-      header: true, // CSV có header trùng với tên key của Account
+      header: true,
       skipEmptyLines: true,
       complete: async (results) => {
-        const csvData: Account[] = results.data as Account[];
+        const csvData = results.data as Account[];
 
-        // Nếu là giảng viên thì xóa class_name
-        if (roleType === "teacher") {
-          csvData.forEach((acc) => delete acc.class_name);
-        }
+        if (roleType === "teacher") csvData.forEach((a) => delete a.class_name);
 
         try {
           const endpoint =
             roleType === "student" ? "/register_student" : "/register_teacher";
 
           const res = await api.post(endpoint, csvData);
-
-          const newAccounts: Account[] = res.data || [];
-
-          setAccountList([...accountList, ...newAccounts]);
+          setAccountList([...accountList, ...(res.data || [])]);
 
           alert("Thêm hàng loạt thành công!");
-          e.target.value = ""; // reset file input
-        } catch (err) {
-          console.error(err);
-          alert("Lỗi khi thêm hàng loạt!");
+          e.target.value = "";
+        } catch {
+          alert("Lỗi khi thêm file CSV!");
         }
       },
     });
   };
 
-  // --- SỬA TRỰC TIẾP ---
-  const handleEditClick = (index: number) => {
-    setEditIndex(index);
-    setEditData({ ...accountList[index] });
+  // --- SỬA ---
+  const handleEditClick = (i: number) => {
+    setEditIndex(i);
+    setEditData({ ...accountList[i] });
   };
 
   const handleEditChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
-    setEditData({ ...editData, [name]: value });
+    setEditData({ ...editData, [e.target.name]: e.target.value });
   };
 
   const handleSaveEdit = async () => {
     if (!editData.school_id) return;
+
     try {
       await api.post("/change_info", { [editData.school_id]: editData });
-      const updatedList = [...accountList];
-      updatedList[editIndex!] = editData as Account;
-      setAccountList(updatedList);
+
+      const updated = [...accountList];
+      updated[editIndex!] = editData as Account;
+
+      setAccountList(updated);
       setEditIndex(null);
+
       alert("Cập nhật thành công!");
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Lỗi khi cập nhật!");
     }
   };
@@ -163,27 +152,33 @@ const AccountManager: React.FC = () => {
   };
 
   // --- XÓA ---
-  const handleDelete = async (school_id: string) => {
+  const handleDelete = async (id: string) => {
     try {
-      await api.post("/delete_info", [school_id]);
+      await api.post("/delete_info", [id]);
+      setAccountList(accountList.filter((a) => a.school_id !== id));
       alert("Xóa thành công!");
-      setAccountList(accountList.filter((a) => a.school_id !== school_id));
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Lỗi khi xóa!");
     }
   };
+
+  // --- LỌC THEO KEYWORD ---
+  const filteredAccounts = accountList.filter(
+    (acc) =>
+      acc.school_id?.toLowerCase().includes(searchText.toLowerCase()) ||
+      acc.name.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   return (
     <div className="container py-4">
       <h2 className="fw-bold mb-4">Quản lý thông tin users</h2>
 
-      {/* --- CHỌN LOẠI TÀI KHOẢN --- */}
+      {/* CHỌN LOẠI */}
       <div className="mb-4">
         <label className="me-2">Loại tài khoản:</label>
         <select
           value={roleType}
-          onChange={(e) => setRoleType(e.target.value as "student" | "teacher")}
+          onChange={(e) => setRoleType(e.target.value as any)}
           className="form-select w-auto d-inline-block"
         >
           <option value="student">Sinh viên</option>
@@ -191,14 +186,13 @@ const AccountManager: React.FC = () => {
         </select>
       </div>
 
-      {/* --- FORM THÊM MỚI --- */}
+      {/* FORM THÊM */}
       <div className="border p-4 rounded mb-4">
         <h5 className="fw-semibold mb-3">
           Thêm {roleType === "student" ? "sinh viên" : "giảng viên"}
         </h5>
 
         <div className="row g-3">
-          {/* Form 1 account */}
           <div className="col-md-6">
             <input
               name="name"
@@ -247,6 +241,7 @@ const AccountManager: React.FC = () => {
               className="form-control"
             />
           </div>
+
           {roleType === "student" && (
             <div className="col-md-6">
               <select
@@ -255,9 +250,9 @@ const AccountManager: React.FC = () => {
                 className="form-select"
               >
                 <option value="">--Chọn lớp--</option>
-                {classList.map((cls, idx) => (
-                  <option key={idx} value={cls}>
-                    {cls}
+                {classList.map((c, i) => (
+                  <option key={i} value={c}>
+                    {c}
                   </option>
                 ))}
               </select>
@@ -268,8 +263,8 @@ const AccountManager: React.FC = () => {
         <button onClick={handleAdd} className="btn btn-success mt-3">
           Thêm
         </button>
-        {/* Upload CSV */}
-        <div className="col-md-6">
+
+        <div className="col-md-6 mt-3">
           <label className="form-label">Upload CSV để thêm nhiều</label>
           <input
             type="file"
@@ -280,7 +275,17 @@ const AccountManager: React.FC = () => {
         </div>
       </div>
 
-      {/* --- BẢNG DANH SÁCH --- */}
+      {/* Ô tìm kiếm */}
+      <div className="mb-3">
+        <input
+          className="form-control w-25"
+          placeholder="Tìm theo mã hoặc tên..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+      </div>
+
+      {/* BẢNG */}
       <table className="table table-bordered align-middle text-center">
         <thead className="table-light">
           <tr>
@@ -288,12 +293,13 @@ const AccountManager: React.FC = () => {
             <th>Tên</th>
             <th>Email</th>
             <th>Điện thoại</th>
-            <th>Lớp</th>
+            {roleType === "student" ? <th>Lớp</th> : <p />}
+
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          {accountList.map((acc, i) => (
+          {filteredAccounts.map((acc, i) => (
             <tr key={i}>
               <td>{acc.school_id}</td>
 

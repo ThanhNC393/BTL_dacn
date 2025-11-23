@@ -3,7 +3,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/unnamed.png";
-import Menu_template from "./menus/menu_template";
+import Menu_template from "./menu_template";
 import api from "../apis";
 
 const App: React.FC = () => {
@@ -58,9 +58,10 @@ const App: React.FC = () => {
         menuItems={[
           "Thông tin cá nhân",
           "Yêu cầu sửa thông tin",
-          "Xem thông tin sinh viên",
+          "Tra cứu thông tin",
           "Xem lịch giảng dạy",
           "Quản lý môn dạy",
+          "Điểm danh môn học",
         ]}
         role={0}
       />
@@ -74,7 +75,7 @@ const App: React.FC = () => {
           "Thông tin cá nhân",
           "Yêu cầu sửa thông tin",
           "Xem thời khóa biểu",
-          "Quản lý môn học",
+          "Kết quả học tập",
           "Đăng ký học phần",
         ]}
         role={1}
