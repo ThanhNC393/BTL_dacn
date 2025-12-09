@@ -13,6 +13,7 @@ import TeacherSubjects from "../feature_teacher/manage_subject";
 import StudentSchedule from "../feature_student/get_tkb";
 import StudentCourses from "../feature_student/manage_subject";
 import CourseRegistration from "../feature_student/register_coures";
+import AttendanceComponent from "../feature_teacher/roll_call";
 
 interface tmp {
   role_name: string;
@@ -40,7 +41,7 @@ function Menu_template({ role_name, menuItems, role }: tmp) {
         <SearchInfo />,
         <TeacherSchedule />,
         <TeacherSubjects />,
-        1,
+        <AttendanceComponent />,
       ];
       break;
     }

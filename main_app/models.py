@@ -209,6 +209,7 @@ class Course(db.Model):
             raise Course_Exception
         return course
 
+     
         
 class ClassDay(db.Model):
     __tablename__ = 'class_day'
@@ -217,8 +218,8 @@ class ClassDay(db.Model):
     course_id = Column(String(50), ForeignKey('course.course_id', ondelete='CASCADE', onupdate='CASCADE'))
     day = Column(Date)
     status = Column(Boolean)
-
     prior = Column(ARRAY(Integer))
+
 
 class Result_Exception(Exception):
     pass

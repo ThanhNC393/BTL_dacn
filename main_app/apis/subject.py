@@ -516,6 +516,7 @@ def delete_subject():
     
 
 
+
 @api.route('get_subjects', methods = ['GET', "POST"])
 def get_subject():
     
@@ -614,6 +615,7 @@ def get_score():
     })
 
 
+
 @api.route('/roll_call', methods = ["POST"])#diem danh
 def roll_call():
 
@@ -678,9 +680,6 @@ def roll_call():
 
 
 
-                roll.get("1")
-
-
 
             except TypeError:
                 message["invalid"][f'{course_id}-{day}'] = "missing data!"
@@ -733,15 +732,46 @@ def get_subject_of(mode):
             
 
 
-@api.route('/change_role_call', methods = ["PATCH"])#sua diem danh
-def change_role_call():
-    pass
-
 #------------------------------------------
 
 
+@api.route('/get_absent_student', methods = ['GET', 'POST'])
+def get_absent_student():
+    data = request.get_json()
+    course_id = data[0]
+    day = data[1]
+    try:
+        course = db.session.query(ClassDay).outerjoin(
+            Course, ClassDay.course_id == ClassDay.course_id
+        ).filter(
+            Course.course_id == course_id,
+            ClassDay.day == datetime.strptime(day, "%d/%m/%Y")
+        ).one()
+        students = course.day_offs
+        return jsonify([
+            student.result.student.school_id for student in students
+        ])
+    except Course_Exception:
+        return jsonify(), 401
 
 
+
+@api.route('/get_class_day', methods = ['GET', 'POST'])
+def get_class_day():
+    print(request.method)
+    if request.method == "POST":
+        course_id = request.get_json()[0]
+        print(course_id)
+        try:
+            course  = Course.get_course(course_id=course_id)
+            class_days = course.class_days
+            return jsonify([
+                class_day.day.strftime("%d/%m/%Y") for class_day in class_days
+            ])
+        except Course_Exception:
+            return jsonify("Not have this course"), 401
+    else:
+        return jsonify()
 
 
 
