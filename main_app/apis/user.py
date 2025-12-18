@@ -1,17 +1,19 @@
 from . import api
 from .. import db
 from ..models import (
-    User, Class, Change_Info_Request, Account,
-    User_Exception, ClassException
+    User, Class, Change_Info_Request, Account, Announcement, Course, Result,
+    User_Exception, ClassException, Course_Exception
 )
 from flask import jsonify, request
 from datetime import datetime
+from ..some_function import role_required
 
 
 
 
 #1 - quan ly tai khoan + quan ly thong tin
 @api.route('/register_teacher', methods=['POST'])#add teacher
+@role_required(2)
 def register_teachers():
 
     if not request.is_json :
@@ -20,6 +22,7 @@ def register_teachers():
         }), 404
 
     data:dict = request.get_json() 
+    data = [data]
     invalid = dict()
     valid = []
     for val in data:
@@ -77,6 +80,7 @@ def register_teachers():
 
 
 @api.route('/get_teachers', methods = ['GET', 'POST'])#get teachers' information
+# @role_required(0, 2)
 def get_teachers():
     if not request.is_json:
         return jsonify({
@@ -100,7 +104,7 @@ def get_teachers():
             'personal_id' : teacher.personal_id,
             'phone_number' : teacher.phone_number,
             'address' : teacher.address,
-            'date_of_joining' : teacher.date_of_joining,
+            'date_of_joining' : teacher.date_of_joining.strftime("%d-%m-%Y"),
             'email' : teacher.email,
             'school_id' : teacher.school_id
         } for teacher in teachers
@@ -109,6 +113,7 @@ def get_teachers():
 
 
 @api.route('/register_student', methods = ['POST'])#add student
+@role_required(2)
 def register_students():
     if not request.is_json :
         return jsonify({
@@ -181,6 +186,7 @@ def register_students():
 
 
 @api.route('/get_students', methods = ['GET', 'POST'])#get students' information
+@role_required(0, 1, 2)
 def get_students():
     if not request.is_json:
         return jsonify({
@@ -214,6 +220,7 @@ def get_students():
 
 
 @api.route('/delete_info', methods = ['DELETE', 'POST'])#delete information of an user
+@role_required(2)
 def delete_info():
     if not request.is_json:
         return jsonify({
@@ -236,6 +243,7 @@ def delete_info():
 
 
 @api.route('/add_account', methods = ['POST'])#add account
+@role_required(2)
 def add_account():
     
     if not request.is_json:
@@ -278,6 +286,7 @@ def add_account():
 
 
 @api.route('/get_account', methods = ['GET', 'POST'])
+@role_required(0, 2)
 def get_account():
     if not request.is_json:
         return jsonify({
@@ -293,6 +302,7 @@ def get_account():
 
 
 @api.route('/edit_account', methods = ['PATCH', 'POST'])#change information of an account
+@role_required(2)
 def edit_account():
     
     if not request.is_json:
@@ -310,18 +320,18 @@ def edit_account():
             continue
 
         account = user.account
-        print(type(account))
         if not account:
             invalid[school_id] = "this user don't have account"
             continue
 
-        account.extracted_face = info.get('extracted_face') or account.extracted_face
         account.account_name = info.get('account_name') or account.account_name
         account.password = info.get('pass_word') or account.password
+        print(info.get('pass_word'))
 
-        if account.first_login == True:
-            account.first_login = False
-        db.session.add(account)
+
+        # if account.first_login == True:
+        #     account.first_login = False
+        # db.session.add(account)
     db.session.commit()
     if len(invalid) > 0:
         return jsonify(invalid)
@@ -332,6 +342,7 @@ def edit_account():
 
 
 @api.route('delete_account', methods = ['DELETE', 'POST'])#delete account of an user
+# @role_required(2) 
 def delete_account():
     if not request.is_json:
         return jsonify({
@@ -364,11 +375,12 @@ def delete_account():
 
 
 @api.route('/change_info', methods = ['POST'])
+# @role_required(2)
 def change_info():
     if not request.is_json :
         return jsonify({
             "error": "not json!"
-        }), 404
+        }), 401
     
 
     data:dict = request.get_json()
@@ -378,7 +390,7 @@ def change_info():
     if len(data) == 0:
         return jsonify({
             "error": "Not have data in API!"
-        })
+        }), 401
     
     invalid = dict()
 
@@ -408,10 +420,10 @@ def change_info():
     db.session.commit()
 
     if len(invalid) != 0:
-        return jsonify(invalid)
+        return jsonify(invalid), 200
     return jsonify({
         "message": "done!"
-    })
+    }), 200
 #--------------------------------------------------------------------
 
 
@@ -420,6 +432,7 @@ def change_info():
 
 
 @api.route('/add_class', methods = ['POST'])
+@role_required(2)
 def add_class():
 
     if not request.is_json :
@@ -438,7 +451,7 @@ def add_class():
         except ClassException:
             estab_date = val.get('estab_date') or None
             if estab_date:
-                year = datetime.strptime(estab_date,'%d/%m/%Y').year
+                year = datetime.strptime(estab_date,'%d-%m-%Y').year
             else: 
                 year = None
             name = val.get('name') or None
@@ -464,6 +477,7 @@ def add_class():
 
 
 @api.route('/get_class', methods = ['GET', 'POST'])
+@role_required(0, 1, 2)
 def get_class():
     
     if not request.is_json:
@@ -474,13 +488,14 @@ def get_class():
     all_classes = Class.query.all()
     return jsonify([{
         "name": class_.name,
-        "estab_date": class_.estab_date.strftime('%d/%m')
+        "estab_date": class_.estab_date.strftime('%Y-%m-%d')
     } for class_ in all_classes])
     
 
 
 
 @api.route('/delete_class', methods = ['DELETE', 'POST'])
+@role_required(2)
 def delete_class():
     
     if not request.is_json:
@@ -509,6 +524,7 @@ def delete_class():
 
 
 @api.route('/change_info_class', methods = ['POST', 'PATCH'])
+@role_required(2)
 def change_info_class():
     
     if not request.is_json:
@@ -546,6 +562,7 @@ def change_info_class():
 
 
 @api.route('/request_change_info', methods = ['POST'])
+@role_required(0, 1)
 def request_change_info():
 
     if not request.is_json :
@@ -558,8 +575,8 @@ def request_change_info():
     for school_id, info in data.items():
         request_ = Change_Info_Request.query.filter_by(school_id = school_id, status = False).first()
         if request_ is not None and request_.status==False:
-            invalid[school_id] = "Another request is being processed!"
-            continue
+            db.session.delete(request_)
+            db.session.flush()
 
         new_request = Change_Info_Request(
             name = info.get('name') or None,
@@ -582,7 +599,9 @@ def request_change_info():
 
 
 
+
 @api.route('get_request_change_info', methods = ['POST'])
+@role_required(0, 1, 2)
 def get_request_change_info():
     if not request.is_json:
         return jsonify({
@@ -613,6 +632,7 @@ def get_request_change_info():
 
 
 @api.route('/approve_change_request', methods = ['POST'])
+@role_required(2)
 def approve_change_request():
     
     if not request.is_json :
@@ -639,7 +659,7 @@ def approve_change_request():
     from ...flasky import app
 
     with app.test_request_context('/api/v1/change_info', method='post', json = all_changes):
-        respond = change_info().get_json()
+        respond = change_info()[0].get_json()
         for school_id in all_changes:
             if school_id not in respond:
                 requests[school_id].status = True
@@ -649,6 +669,7 @@ def approve_change_request():
 
 
 @api.route('/reject_change_request', methods = ['POST'])
+@role_required(2)
 def reject_change_request():
     if not request.is_json :
         return jsonify({
@@ -662,3 +683,59 @@ def reject_change_request():
             db.session.delete(request_)
     db.session.commit()
     return jsonify(), 200
+
+
+
+@api.route('/announcement', methods = ['POST'])
+@role_required(0)
+def announcement():
+    
+    if not request.is_json:
+        return jsonify(), 401
+    
+    data = request.get_json()
+    print(data)
+    try:
+        course = Course.get_course(course_id=data[0])
+        new_ann = Announcement(
+            content = data[1],
+            course_id = course.course_id,
+            day_upload = datetime.now() 
+        )
+        db.session.add(new_ann)
+        db.session.commit()
+
+    except Course_Exception:
+        return jsonify(), 401
+
+    return jsonify(), 200
+
+
+
+@api.route('/get_announcs', methods = ['GET', 'POST'])
+def get_num_announ():
+    
+    if not request.is_json:
+        return jsonify(), 401
+    
+    data = request.get_json()[0]
+
+
+    announs = db.session.query(Announcement, Course).outerjoin(
+        Course, Announcement.course_id == Course.course_id
+    ).outerjoin(
+        Result, Course.course_id == Result.course_id
+    ).outerjoin(
+        User, User.school_id == Result.student_id
+    ).filter(User.school_id == data).all()
+
+    
+    response = dict()
+
+    for tmp in announs:
+        print(tmp)
+        if not response.get(str(tmp[0].day_upload)): 
+            response[str(tmp[0].day_upload)] = []
+        response[str(tmp[0].day_upload)].append([tmp[1].subject.subject_name, tmp[0].content])
+
+    return jsonify(response)

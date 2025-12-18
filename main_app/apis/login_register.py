@@ -67,7 +67,11 @@ def login():
     
     if account.verify_password(plain_password=data.get("password")):
         respond = create_access_token(
-            identity = str(account.user.school_id)
+            identity = str(account.user.school_id),
+            # identity=str(info)
+            additional_claims={
+                "role": account.user.role
+            }
         )
         rp = {
             "token":respond, 

@@ -20,7 +20,7 @@ const App: React.FC = () => {
 
       try {
         const res = await api.get("/protected", {
-          headers: { Authorization: `Bearer ${token}` },
+          // headers: { Authorization: `Bearer ${token}` },
         });
 
         if (res.data.valid) {
@@ -77,6 +77,7 @@ const App: React.FC = () => {
           "Xem thời khóa biểu",
           "Kết quả học tập",
           "Đăng ký học phần",
+          "Thông báo",
         ]}
         role={1}
       />

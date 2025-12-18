@@ -22,7 +22,7 @@ const LoginPage: React.FC = () => {
 
       try {
         const res = await api.get("/protected", {
-          headers: { Authorization: `Bearer ${token}` },
+          // headers: { Authorization: `Bearer ${token}` },
         });
 
         if (res.data.valid) {

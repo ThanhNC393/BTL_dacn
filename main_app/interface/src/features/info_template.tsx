@@ -1,130 +1,152 @@
-import React, { useState, useEffect } from "react";
-import { Card, Form, Button, Row, Col } from "react-bootstrap";
+import React, { useEffect, useState } from "react";
+import { Card, Form, Button, Row, Col, Badge } from "react-bootstrap";
 import api from "../apis";
 
-interface InfoData {
-  title: string;
-  value: string;
+interface Field {
+  key: string;
+  label: string;
   editable: boolean;
 }
 
-interface tmpp {
+interface Props {
   data_: any;
-  setNum: any;
+  setUserInfo?: (data: any) => void;
 }
 
-const Info: React.FC<tmpp> = ({ data_, setNum }) => {
-  // Khởi tạo dữ liệu 8 ô: 4 editable, 4 read-only
-  const [data, setData] = useState<InfoData[]>([
-    { title: "Tên", value: data_.name, editable: true },
-    { title: "Email", value: data_.email, editable: true },
-    { title: "Địa chỉ", value: data_.address, editable: true },
-    { title: "Số điện thoại", value: data_.phone_number, editable: true },
-    { title: "Mã định danh", value: data_.personal_id, editable: true },
-    { title: "Ngày gia nhập", value: data_.date_of_joining, editable: false },
-  ]);
+const COMMON_FIELDS: Field[] = [
+  { key: "name", label: "Tên", editable: true },
+  { key: "email", label: "Email", editable: true },
+  { key: "address", label: "Địa chỉ", editable: true },
+  { key: "phone_number", label: "Số điện thoại", editable: true },
+  { key: "personal_id", label: "Mã định danh", editable: true },
+  { key: "date_of_joining", label: "Ngày gia nhập", editable: false },
+];
 
+const InfoEdit: React.FC<Props> = ({ data_, setUserInfo }) => {
+  const isAdmin = Number(data_.role) === 2;
+  const [formState, setFormState] = useState<any>({});
   useEffect(() => {
-    // tránh việc thêm lặp lại khi data_ không đổi
-    if (!data_?.role) return;
+    const initial: any = {};
+
+    COMMON_FIELDS.forEach((f) => {
+      initial[f.key] = data_[f.key] ?? "";
+    });
 
     if (Number(data_.role) === 1) {
-      setData([
-        ...data,
-        { title: "Lớp học", value: data_.class, editable: false },
-        { title: "Mã sinh viên", value: data_.school_id, editable: false },
-      ]);
-    } else if (Number(data_.role) === 0) {
-      setData([
-        ...data,
-        { title: "Mã giảng viên", value: data_.school_id, editable: false },
-      ]);
+      initial.class = data_.class;
+      initial.school_id = data_.school_id;
     }
+
+    if (Number(data_.role) === 0) {
+      initial.school_id = data_.school_id;
+    }
+
+    setFormState(initial);
   }, [data_]);
 
-  const handleChange = (index: number, newValue: string) => {
-    const newData = [...data];
-    newData[index].value = newValue;
-    setData(newData);
+  const handleChange = (key: string, value: string) => {
+    setFormState((prev: any) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = async () => {
-    let tmp = data_.school_id;
     const payload = {
-      [tmp]: {
-        name: data[0].value,
-        email: data[1].value,
-        address: data[2].value,
-        phone_number: data[3].value,
-        personal_id: data[4].value,
+      [data_.school_id]: {
+        name: formState.name,
+        email: formState.email,
+        address: formState.address,
+        phone_number: formState.phone_number,
+        personal_id: formState.personal_id,
       },
     };
 
-    console.log("Payload gửi API:", payload);
-    let response;
-    let urll = data_.role === 2 ? "/change_info" : "/request_change_info";
+    const url = isAdmin ? "/change_info" : "/request_change_info";
+
     try {
-      response = await api.post(urll, payload, {
+      await api.post(url, payload, {
         headers: { "Content-Type": "application/json" },
       });
-      if (data_.role != 2) {
-        setData((prev) =>
-          prev.map((item) => {
-            switch (item.title) {
-              case "Tên":
-                return { ...item, value: data_.name };
-              case "Email":
-                return { ...item, value: data_.email };
-              case "Địa chỉ":
-                return { ...item, value: data_.address };
-              case "Số điện thoại":
-                return { ...item, value: data_.phone_number };
-              case "Mã định danh":
-                return { ...item, value: data_.personal_id };
-              default:
-                return item;
-            }
-          })
-        );
-        localStorage.setItem("cir", "1");
-        setNum(localStorage.getItem("cir"));
+
+      if (isAdmin && typeof setUserInfo === "function") {
+        /**
+         * 🔑 ADMIN: cập nhật source of truth
+         */
+        setUserInfo((prev: any) => ({
+          ...prev,
+          ...payload[data_.school_id],
+        }));
       }
-      alert("Gửi thành công: " + JSON.stringify(response.data));
-    } catch (err: any) {
+
+      alert(isAdmin ? "Cập nhật thành công" : "Đã gửi yêu cầu chỉnh sửa");
+    } catch (err) {
       console.error(err);
-      if (response) {
-        alert("Gửi thất bại");
-      }
+      alert("Thao tác thất bại");
     }
   };
 
   return (
-    <div className="container mt-4">
-      <h3 className="mb-4">Thông tin chi tiết</h3>
-      <Row className="g-3">
-        {data.map((item, index) => (
-          <Col md={3} key={index}>
-            <Card className="p-2">
+    <Card className="shadow-sm border-0">
+      <Card.Body className="p-4">
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h4 className="mb-0">Chỉnh sửa thông tin</h4>
+          <Badge bg={isAdmin ? "success" : "warning"}>
+            {isAdmin ? "Admin – sửa trực tiếp" : "User – gửi yêu cầu"}
+          </Badge>
+        </div>
+
+        <Row className="g-4">
+          {COMMON_FIELDS.map((field) => (
+            <Col md={6} lg={4} key={field.key}>
               <Form.Group>
-                <Form.Label>{item.title}</Form.Label>
+                <Form.Label>{field.label}</Form.Label>
                 <Form.Control
-                  type="text"
-                  value={item.value}
-                  readOnly={!item.editable}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  placeholder={item.editable ? "Nhập thông tin..." : ""}
+                  value={formState[field.key] || ""}
+                  readOnly={!field.editable}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                  className={!field.editable ? "bg-light" : ""}
                 />
               </Form.Group>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+            </Col>
+          ))}
 
-      <Button className="mt-4" variant="success" onClick={handleSubmit}>
-        {data_.role === 2 ? "Sửa thông tin" : "Yêu cầu sửa thông tin"}
-      </Button>
-    </div>
+          {formState.school_id && (
+            <Col md={6} lg={4}>
+              <Form.Group>
+                <Form.Label>Mã định danh nội bộ</Form.Label>
+                <Form.Control
+                  value={formState.school_id}
+                  readOnly
+                  className="bg-light"
+                />
+              </Form.Group>
+            </Col>
+          )}
+
+          {formState.class && (
+            <Col md={6} lg={4}>
+              <Form.Group>
+                <Form.Label>Lớp học</Form.Label>
+                <Form.Control
+                  value={formState.class}
+                  readOnly
+                  className="bg-light"
+                />
+              </Form.Group>
+            </Col>
+          )}
+        </Row>
+
+        <div className="d-flex justify-content-end mt-4">
+          <Button
+            size="lg"
+            variant={isAdmin ? "success" : "primary"}
+            onClick={handleSubmit}
+          >
+            {isAdmin ? "Lưu thay đổi" : "Gửi yêu cầu sửa thông tin"}
+          </Button>
+        </div>
+      </Card.Body>
+    </Card>
   );
 };
 
-export default Info;
+export default InfoEdit;

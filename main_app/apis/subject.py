@@ -7,11 +7,14 @@ from .. import db
 from flask import request, jsonify
 from datetime import datetime
 from ..some_function import (
-    get_days, get_order, insert_year, get_final_result
+    get_days, get_order, insert_year, get_final_result, get_gpa2
+    ,check_duplicate ,
+    role_required
 )
 
 #1. quan ly hoc ky
 @api.route('/add_semester', methods = ['POST'])#them hoc ky
+@role_required(2)
 def add_semester():
 
     if not request.is_json:
@@ -63,6 +66,7 @@ def add_semester():
 
 
 @api.route('/get_semesters', methods = ['GET', 'POST'])
+@role_required(0,1,2)
 def get_semester():
     all_semesters = Semester.query.all()
 
@@ -79,6 +83,7 @@ def get_semester():
 
 
 @api.route('/change_info_semester', methods = ['PATCH', 'POST'])#sua thong tin hoc ky
+@role_required(2)
 def change_info_semester():
     if not request.is_json:
         return jsonify({
@@ -127,6 +132,7 @@ def change_info_semester():
 
 
 @api.route('/delete_semester', methods = ['POST', 'DELETE'])#xoa hoc ky
+@role_required(2)
 def delete_semester():
     if not request.is_json:
         return jsonify({
@@ -157,6 +163,7 @@ def delete_semester():
 
 
 @api.route('/add_course', methods = ['POST'])#dang ky mon cho hoc ky
+@role_required(2)
 def add_course():
 
     if not request.is_json:
@@ -189,21 +196,22 @@ def add_course():
             invalid[subject_id]="Not existed!"
             continue
         
-        existed_course = Course.query.filter_by(
-            semester_id = semester.id,
-            teacher_id = teacher.id,
-            subject_id = subject.id
-        ).first()
-
-        if existed_course:
-            invalid[f'{semester.semester_id}-{teacher.school_id}-{subject.subject_id}'] = "is existed!"
+        courses = db.session.query(Course).outerjoin(
+            User, User.id == Course.teacher_id
+        ).filter(
+            Course.semester_id == semester.id,
+            Course.teacher_id == teacher.id
+        ).all()
+        schedules = [course.schedule for course in courses]
+        if not check_duplicate(info.get('class_day'), schedules=schedules):
             continue
 
         new_course = Course(
             semester_id = semester.id,
             teacher_id = teacher.id,
             subject_id = subject.id,
-            cost = info.get('cost') or None
+            cost = info.get('cost') or None,
+            schedule = info.get('class_day') or None
         )
         db.session.add(new_course)
         db.session.flush()
@@ -240,36 +248,88 @@ def add_course():
 
 
 @api.route('/get_courses', methods = ["GET", "POST"])
+@role_required(0, 1, 2)
 def get_course():
     
     courses = Course.query.all()
     return jsonify({
         course.course_id: {
-            "semester_id": course.semester_id,
-            "teacher_id": course.teacher_id,
-            "subject_id": course.subject_id,
+            "semester_id": course.semester.semester_id,
+            "teacher_id": course.teacher.school_id,
+            "subject_id": course.subject.subject_id,
         }
     for course in courses}), 200
 
 
 
 @api.route('/get_courses2', methods = ["GET", "POST"])
+# @role_required(0, 1, 2)
 def get_course2():
     
-    courses = Course.query.all()
-    return jsonify({
-        course.course_id: {
-            "semester_id": course.semester.semester_id,
-            "teacher_id": course.teacher.name,
-            "subject_id": course.subject.subject_name,
-            
+    # from datetime import datetime
+    now = datetime.now()
+
+    current_month = now.month
+    current_year = now.year
+
+    current_semester = f'{current_year}_{1 if current_month <6 else 2}'
+
+    courses = db.session.query(Course).outerjoin(
+        Semester, Semester.id == Course.semester_id
+    ).filter(Semester.semester_id == current_semester)
+
+    student_id = request.get_json()[0]
+    results = Result.query.filter_by(student_id = student_id)
+    schedules = []
+    for result in results:
+        schedules.append(result.course.schedule)
+
+    data = dict()
+    for course in courses:
+        if check_duplicate(course.schedule, schedules):
+            data[course.course_id] = {
+                "semester_id": course.semester.semester_id,
+                "teacher_id": course.teacher.name,
+                "subject_id": course.subject.subject_name, 
+                "schedule": course.schedule     
+            }
+
+    return jsonify(data), 200
+
+
+
+@api.route('/get_courses3', methods = ['GET', 'POST'])
+def get_course3():
+
+    now = datetime.now()
+
+    current_month = now.month
+    current_year = now.year
+
+    current_semester = f'{current_year}_{1 if current_month <6 else 2}'
+
+    student_id = request.get_json()[0]
+
+    courses = db.session.query(Result, Course).outerjoin(
+        Semester, Semester.id == Course.semester_id
+    ).outerjoin(
+        Result, Result.course_id == Course.course_id
+    ).filter(Semester.semester_id == current_semester, Result.student_id == student_id)
+
+    data = dict()
+
+    for course in courses:
+        data[course[1].course_id] = {
+            "teacher_id" : course[1].teacher.name,
+            "subject_name" : course[1].subject.subject_name,
+            "schedule": course[1].schedule
         }
-    for course in courses}), 200
+    return jsonify(data)
 
 
 
-
-@api.route('/change_info_course', methods = ['PATCH'])#sua mon da dang ky
+@api.route('/change_info_course', methods = ['PATCH', 'POST'])#sua mon da dang ky
+@role_required(2)
 def change_info_course():
 
     if not request.is_json:
@@ -277,10 +337,9 @@ def change_info_course():
             jsonify({
                 "error":"not json!"
             })
-        })
+        }), 401
     
     data:dict = request.get_json()
-
     message = {
         "invalid":dict(),
         "success":[],
@@ -291,7 +350,7 @@ def change_info_course():
         ClassDay, Course
     ).outerjoin(Course).filter(
         Course.course_id.in_(data.keys()),
-        ClassDay.day >= datetime.now().date()
+        # ClassDay.day >= datetime.now().date()
     ).all()
 
     list_tkb = dict()
@@ -302,31 +361,42 @@ def change_info_course():
         else:
             message["invalid"][_] = "this course is not existed or finished!" 
 
-
+    # print(courses)
     for class_day, course in courses:
         if course not in list_tkb:
             list_tkb[course] = []
         list_tkb[course].append(class_day)
 
-    print(list_tkb)
+    # print(list_tkb)
 
     for course, class_day in list_tkb.items():
         info = data.get(course.course_id)
+        # print(info)
         try:
             if (semester := Semester.get_semester(info.get("semester_id"))):
-                course.semester_id = semester.id
-            if (teacher := User.get_user(info.get("teacher_id"), role = 0)):
-                course.teacher_id = teacher.id
-            if (subject := Subject.get_subject(info.get("subject_id"))):
-                course.subject_id = subject.id
-            if (cost := info.get("cost")):
-                course.cost = cost
+                print(semester.semester_id, "------------------")
+                course.semester_id = semester.id    
         except Semester_Exception:
             pass
+
+        try:
+            if (teacher := User.get_user(info.get("teacher_id"), role = 0)):
+                course.teacher_id = teacher.id
         except User_Exception:
             pass
+
+        try:        
+            if (subject := Subject.get_subject(info.get("subject_id"))):
+                course.subject_id = subject.id
         except Subject_Exception:
             pass
+
+        if (cost := info.get("cost")):
+            course.cost = cost
+            print(cost)
+        
+       
+        
         if (tkb := info.get("class_day")):
             for _ in class_day:
                 db.session.delete(_)
@@ -337,7 +407,7 @@ def change_info_course():
             )    
             for day in days:
                 new_class_day = ClassDay(
-                    course_id = course.id,
+                    course_id = course.course_id,
                     status = False,
                     day = day,
                     prior = tkb.get(str(day.weekday()+2)) or None
@@ -351,6 +421,7 @@ def change_info_course():
 
 
 @api.route('/delete_course', methods = ['DELETE', "POST"])#xoa mon da dang ky
+@role_required(2)
 def delete_course():
     if not request.is_json:
         return(
@@ -390,6 +461,7 @@ def delete_course():
 
 #2. Quan ly mon hoc
 @api.route('/add_subject', methods = ['POST'])#them mon hoc
+@role_required(2)
 def add_subject():
     
     if not request.is_json:
@@ -436,6 +508,7 @@ def add_subject():
 
 
 @api.route('/change_info_subject', methods = ['PATCH'])#sua thong tin mon hoc
+@role_required(2)
 def change_info_subject():
     if not request.is_json:
         return jsonify({
@@ -487,6 +560,7 @@ def change_info_subject():
         
 
 @api.route('/delete_subject', methods = ['POST', 'DELETE'])#xoa mon hoc
+@role_required(2)
 def delete_subject():
     if not request.is_json:
         return(
@@ -518,6 +592,7 @@ def delete_subject():
 
 
 @api.route('get_subjects', methods = ['GET', "POST"])
+@role_required(0, 1, 2)
 def get_subject():
     
     all_subjects = Subject.query.all()
@@ -544,6 +619,7 @@ def get_subject():
 
 #3. Quan ly ket qua hoc tap
 @api.route('/enter_score', methods = ["PATCH", "POST"])#nhap diem
+@role_required(0)
 def enter_score():
 
     if not request.is_json:
@@ -585,9 +661,12 @@ def enter_score():
             score_names = result.course.subject.scores
             scores_ = result.scores.copy()
             for index in range(len(score_names)):
-                if (score := scores.get(score_names[index])):
-                    scores_[index] = score
+                # if (score := scores.get(score_names[index])):
+                    # scores_[index] = score
+                scores_[index] = scores.get(score_names[index])
+
             result.scores = scores_
+            print(result.scores)
     db.session.commit()
 
     return jsonify(message)
@@ -595,6 +674,7 @@ def enter_score():
 
 
 @api.route('/get_score', methods = ["GET", "POST"])
+@role_required(0, 1, 2)
 def get_score():
     if not request.is_json:
         return jsonify(), 401
@@ -616,7 +696,32 @@ def get_score():
 
 
 
+@api.route('/get_gpa', methods = ['GET', 'POST'])
+@role_required(0, 1, 2)
+def get_gpa():
+    if not request.is_json:
+        return jsonify('not json!'), 401
+    
+    student_id = request.get_json()[0]
+    try:
+        user = User.get_user(school_id=student_id, role=1)
+        results = user.results
+        sum_result = 0
+        sum_credit = 0
+        for result in results:
+            if (tmp:=get_final_result(result.scores, result.course.subject.weights)) is not None:
+                tmp2 = result.course.subject.number_of_credit
+                sum_result += get_gpa2(tmp) * tmp2
+                sum_credit += tmp2
+        return jsonify([sum_credit, sum_result/sum_credit])
+
+    except User_Exception:
+        return jsonify('not have this user!'), 401
+
+
+
 @api.route('/roll_call', methods = ["POST"])#diem danh
+@role_required(0)
 def roll_call():
 
     if not request.is_json:
@@ -691,6 +796,7 @@ def roll_call():
 
 
 @api.route('/get_subject_of/<mode>', methods = ["POST", "GET"])
+@role_required(0, 1, 2)
 def get_subject_of(mode):
     if not request.is_json:
         return jsonify({
@@ -736,6 +842,7 @@ def get_subject_of(mode):
 
 
 @api.route('/get_absent_student', methods = ['GET', 'POST'])
+@role_required(0, 1, 2)
 def get_absent_student():
     data = request.get_json()
     course_id = data[0]
@@ -757,6 +864,7 @@ def get_absent_student():
 
 
 @api.route('/get_class_day', methods = ['GET', 'POST'])
+@role_required(0, 1, 2)
 def get_class_day():
     print(request.method)
     if request.method == "POST":
@@ -776,6 +884,7 @@ def get_class_day():
 
 
 @api.route('/get_result/<mode>', methods = ["GET", "POST"])#xem diem
+@role_required(0, 1, 2)
 def get_result(mode):
     
     if not request.is_json:
@@ -839,6 +948,7 @@ def get_result(mode):
 
 
 @api.route('/get_tkb/<mode>', methods=['GET', "POST"])#xem tkb
+@role_required(0, 1, 2)
 def get_tkb(mode):
     if not request.is_json:
         return jsonify({
@@ -900,6 +1010,7 @@ def get_tkb(mode):
 
 
 @api.route('/register_course', methods = ['POST'])#dang ky mon hoc
+@role_required(1)
 def register_course():
     
     if not request.is_json:
@@ -920,6 +1031,7 @@ def register_course():
             if not User.query.filter_by(school_id=student_id, role=1).first():
                 invalid[student_id] = "not have this student!"
                 continue
+
             result = Result.query.filter_by(
                 student_id =  student_id,
                 course_id = course_id
@@ -951,7 +1063,24 @@ def register_course():
 
 
 
+@api.route('/unregister_course', methods = ['DELETE', 'POST'])
+def unregister_course():
+    
+    if not request.is_json:
+        return jsonify(), 401
+    
+    data = request.get_json()
+    results = Result.query.filter_by(course_id = data[0], student_id = data[1])
+    for result in results:
+        db.session.delete(result)
+    db.session.commit()
+
+    return jsonify(), 200
+
+
+
 @api.route('/get_subject2/<mode>', methods = ["POST", "GET"])
+@role_required(0, 1, 2)
 def get_subject2(mode):
     if not request.is_json:
         return jsonify({
@@ -1003,6 +1132,7 @@ def get_subject2(mode):
 
 
 @api.route('/get_students_of_course', methods = ["POST", "GET"])
+@role_required(0, 1, 2)
 def get_students_of_course():
     if not request.is_json:
         return jsonify({

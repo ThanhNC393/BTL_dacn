@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import api from "../apis";
 
 interface PersonInfo {
   address: string;
@@ -28,31 +29,21 @@ const DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", 
 export default function SearchInfo() {
   const [mode, setMode] = useState<"student" | "teacher">("student");
   const [list, setList] = useState<Record<string, PersonInfo>>({});
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState("");
   const [info, setInfo] = useState<PersonInfo | null>(null);
   const [schedule, setSchedule] = useState<Schedule>({});
-
-  // week control
   const [weekOffset, setWeekOffset] = useState(0);
 
-  // new states for subjects and results
   const [subjects, setSubjects] = useState<string[]>([]);
   const [results, setResults] = useState<StudentResult>({});
   const [search, setSearch] = useState("");
 
+  /* ================= FETCH LIST ================= */
   const fetchList = async () => {
     try {
-      const url =
-        mode === "teacher"
-          ? "http://127.0.0.1:5000/api/v1/get_teachers"
-          : "http://127.0.0.1:5000/api/v1/get_students";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      setList(data || {});
+      const url = mode === "teacher" ? "/get_teachers" : "/get_students";
+      const res = await api.post(url, {});
+      setList(res.data || {});
     } catch (err) {
       console.error("fetchList error", err);
       setList({});
@@ -60,7 +51,7 @@ export default function SearchInfo() {
   };
 
   const filteredList = Object.fromEntries(
-    Object.entries(list).filter(([id, info]) =>
+    Object.entries(list).filter(([id]) =>
       id.toLowerCase().includes(search.toLowerCase())
     )
   );
@@ -68,63 +59,47 @@ export default function SearchInfo() {
   const searchById = () => {
     if (!search) return;
     if (!list[search]) {
-      alert("Không tìm thấy mã trong danh sách đã tải!");
+      alert("Không tìm thấy mã trong danh sách!");
       return;
     }
     setSelected(search);
     fetchInfo(search);
   };
 
+  /* ================= FETCH INFO ================= */
   const fetchInfo = async (id: string) => {
     if (!id) return;
-    const selectedInfo = list[id] || null;
-    setInfo(selectedInfo);
+
+    setInfo(list[id] || null);
+    setSchedule({});
     setSubjects([]);
     setResults({});
 
     try {
-      const url =
-        mode === "teacher"
-          ? "http://127.0.0.1:5000/api/v1/get_tkb/teacher"
-          : "http://127.0.0.1:5000/api/v1/get_tkb/student";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      const data = await res.json();
-      setSchedule(data || {});
-    } catch (err) {
-      console.error("fetchInfo schedule error", err);
+      // timetable
+      const tkbUrl =
+        mode === "teacher" ? "/get_tkb/teacher" : "/get_tkb/student";
+      const tkbRes = await api.post(tkbUrl, { id });
+      setSchedule(tkbRes.data || {});
+    } catch {
       setSchedule({});
     }
 
-    // fetch subjects and results
     try {
+      // subjects
       const subjUrl =
         mode === "teacher"
-          ? "http://127.0.0.1:5000/api/v1/get_subject_of/teacher"
-          : "http://127.0.0.1:5000/api/v1/get_subject_of/student";
-      const subjRes = await fetch(subjUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([id]),
-      });
-      const subjData: string[] = await subjRes.json();
-      setSubjects(subjData || []);
+          ? "/get_subject_of/teacher"
+          : "/get_subject_of/student";
+      const subjRes = await api.post(subjUrl, [id]);
+      setSubjects(subjRes.data || []);
 
+      // student results
       if (mode === "student") {
-        const resUrl = "http://127.0.0.1:5000/api/v1/get_result/student";
-        const resRes = await fetch(resUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify([id]),
-        });
-        const resData: StudentResult = await resRes.json();
-        setResults(resData || {});
+        const resRes = await api.post("/get_result/student", [id]);
+        setResults(resRes.data || {});
       }
-    } catch (err) {
-      console.error("fetch subjects/results error", err);
+    } catch {
       setSubjects([]);
       setResults({});
     }
@@ -140,13 +115,13 @@ export default function SearchInfo() {
     fetchList();
   }, [mode]);
 
-  // compute monday of current week + weekOffset
+  /* ================= WEEK ================= */
   const getWeekStart = (): Date => {
     const now = new Date();
-    const day = now.getDay(); // 0 Sun .. 6 Sat
-    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const day = now.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
     const monday = new Date(now);
-    monday.setDate(now.getDate() + diffToMonday + weekOffset * 7);
+    monday.setDate(now.getDate() + diff + weekOffset * 7);
     monday.setHours(0, 0, 0, 0);
     return monday;
   };
@@ -158,52 +133,45 @@ export default function SearchInfo() {
     return end;
   };
 
+  /* ================= TIMETABLE ================= */
   const renderTimetable = () => {
     const weekStart = getWeekStart();
     const weekEnd = getWeekEnd(weekStart);
 
-    const timetable: { [day: string]: { [period: number]: string[] } } = {};
-    DAYS.forEach((d) => {
-      timetable[d] = {};
-    });
+    const timetable: { [day: string]: { [p: number]: string[] } } = {};
+    DAYS.forEach((d) => (timetable[d] = {}));
 
-    Object.entries(schedule).forEach(([dateStr, subjects]) => {
+    Object.entries(schedule).forEach(([dateStr, subs]) => {
       const date = new Date(dateStr + "T00:00:00");
-      if (Number.isNaN(date.getTime())) return;
       if (date < weekStart || date > weekEnd) return;
 
-      const weekday = date.getDay();
-      const vnIndex = weekday === 0 ? 6 : weekday - 1;
-      const dayName = DAYS[vnIndex];
+      const idx = date.getDay() === 0 ? 6 : date.getDay() - 1;
+      const dayName = DAYS[idx];
 
-      subjects.forEach((subjObj) => {
-        Object.entries(subjObj).forEach(([subject, periods]) => {
-          periods.forEach((p) => {
+      subs.forEach((obj) =>
+        Object.entries(obj).forEach(([s, ps]) =>
+          ps.forEach((p) => {
             if (!timetable[dayName][p]) timetable[dayName][p] = [];
-            if (!timetable[dayName][p].includes(subject))
-              timetable[dayName][p].push(subject);
-          });
-        });
-      });
+            if (!timetable[dayName][p].includes(s))
+              timetable[dayName][p].push(s);
+          })
+        )
+      );
     });
 
-    const maxPeriods = 10;
-
     return (
-      <div>
-        <div className="d-flex justify-content-between mb-2 align-items-center">
+      <>
+        <div className="d-flex justify-content-between mb-2">
           <button
             className="btn btn-outline-secondary"
             onClick={() => setWeekOffset((w) => w - 1)}
           >
             ◀ Tuần trước
           </button>
-          <div>
-            <strong>
-              Tuần {weekStart.toLocaleDateString()} -{" "}
-              {getWeekEnd(weekStart).toLocaleDateString()}
-            </strong>
-          </div>
+          <strong>
+            {getWeekStart().toLocaleDateString()} –{" "}
+            {getWeekEnd(getWeekStart()).toLocaleDateString()}
+          </strong>
           <button
             className="btn btn-outline-secondary"
             onClick={() => setWeekOffset((w) => w + 1)}
@@ -212,7 +180,7 @@ export default function SearchInfo() {
           </button>
         </div>
 
-        <table className="table table-bordered mt-3 text-center">
+        <table className="table table-bordered text-center">
           <thead>
             <tr>
               <th>Tiết</th>
@@ -222,81 +190,38 @@ export default function SearchInfo() {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: maxPeriods }, (_, i) => i + 1).map(
-              (period) => (
-                <tr key={period}>
-                  <td>
-                    <strong>{period}</strong>
+            {Array.from({ length: 20 }, (_, i) => i + 1).map((p) => (
+              <tr key={`p-${p}`}>
+                <td>{p}</td>
+                {DAYS.map((d) => (
+                  <td key={`${d}-${p}`}>
+                    {(timetable[d][p] || []).map((s) => (
+                      <div key={`${d}-${p}-${s}`}>{s}</div>
+                    ))}
                   </td>
-                  {DAYS.map((day) => (
-                    <td key={day + period} style={{ verticalAlign: "middle" }}>
-                      {(timetable[day][period] || []).map((subj, idx) => (
-                        <div key={idx}>{subj}</div>
-                      ))}
-                    </td>
-                  ))}
-                </tr>
-              )
-            )}
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
+      </>
     );
   };
 
+  /* ================= SUBJECT / RESULT ================= */
   const renderSubjectsAndResults = () => {
     if (!selected) return null;
 
     if (mode === "teacher") {
-      // bảng chỉ liệt kê tên môn
       return (
         <div className="card p-3 mt-4">
           <h5>Môn giảng dạy</h5>
           <table className="table table-bordered text-center">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Tên môn</th>
-              </tr>
-            </thead>
             <tbody>
-              {subjects.map((subj, idx) => (
-                <tr key={subj}>
-                  <td>{idx + 1}</td>
-                  <td>{subj}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    } else {
-      // student: hiển thị bảng kết quả
-      if (subjects.length === 0) return null;
-
-      // lấy danh sách cột từ môn đầu tiên
-      const firstSubj = subjects[0];
-      const scoreColumns = results[firstSubj]?.scores_name || [];
-
-      return (
-        <div className="card p-3 mt-4">
-          <h5>Kết quả học tập</h5>
-          <table className="table table-bordered text-center">
-            <thead>
-              <tr>
-                <th>Môn học</th>
-                {scoreColumns.map((col) => (
-                  <th key={col}>{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {subjects.map((subj) => (
-                <tr key={subj}>
-                  <td>{subj}</td>
-                  {scoreColumns.map((col, idx) => (
-                    <td key={idx}>{results[subj]?.scores[idx] ?? "Chưa có"}</td>
-                  ))}
+              {subjects.map((s, i) => (
+                <tr key={`${s}-${i}`}>
+                  <td>{i + 1}</td>
+                  <td>{s}</td>
                 </tr>
               ))}
             </tbody>
@@ -304,11 +229,43 @@ export default function SearchInfo() {
         </div>
       );
     }
+
+    if (!subjects.length) return null;
+    const cols = results[subjects[0]]?.scores_name || [];
+
+    return (
+      <div className="card p-3 mt-4">
+        <h5>Kết quả học tập</h5>
+        <table className="table table-bordered text-center">
+          <thead>
+            <tr>
+              <th>Môn</th>
+              {cols.map((c, i) => (
+                <th key={`${c}-${i}`}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {subjects.map((s) => (
+              <tr key={s}>
+                <td>{s}</td>
+                {cols.map((_, i) => (
+                  <td key={`${s}-${i}`}>
+                    {results[s]?.scores[i] ?? "Chưa có"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
+  /* ================= UI ================= */
   return (
     <div className="container mt-4">
-      <h3 className="mb-3">Tra cứu thông tin</h3>
+      <h3>Tra cứu thông tin</h3>
 
       <div className="mb-3">
         <button
@@ -329,63 +286,43 @@ export default function SearchInfo() {
         </button>
       </div>
 
-      <div className="mb-3">
-        <label className="form-label">
-          Chọn {mode === "teacher" ? "giảng viên" : "sinh viên"}
-        </label>
+      <input
+        className="form-control mb-2"
+        placeholder="Nhập mã"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <button className="btn btn-success w-100 mb-2" onClick={searchById}>
+        Tìm
+      </button>
 
-        {/* Ô tìm kiếm */}
-        <input
-          type="text"
-          className="form-control mb-2"
-          placeholder="Tìm theo mã (VD: 2020SV13)"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        {/* Nút tìm theo mã */}
-        <button className="btn btn-success w-100 mb-3" onClick={searchById}>
-          Tìm theo mã
-        </button>
-
-        {/* Dropdown danh sách */}
-        <select
-          className="form-select"
-          value={selected}
-          onChange={(e) => {
-            setSelected(e.target.value);
-            fetchInfo(e.target.value);
-          }}
-        >
-          <option value="">-- Chọn --</option>
-
-          {Object.keys(filteredList).map((id) => (
-            <option key={id} value={id}>
-              {id} - {filteredList[id].name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <select
+        className="form-select"
+        value={selected}
+        onChange={(e) => {
+          setSelected(e.target.value);
+          fetchInfo(e.target.value);
+        }}
+      >
+        <option value="">-- Chọn --</option>
+        {Object.keys(filteredList).map((id) => (
+          <option key={id} value={id}>
+            {id} - {filteredList[id].name}
+          </option>
+        ))}
+      </select>
 
       {info && (
-        <div className="card p-3 mb-4">
+        <div className="card p-3 mt-4">
           <h5>Thông tin cá nhân</h5>
           <p>Họ tên: {info.name}</p>
           <p>Mã: {info.school_id}</p>
           <p>Email: {info.email}</p>
-          <p>Địa chỉ: {info.address}</p>
-          <p>Ngày vào trường: {info.date_of_joining}</p>
           {info.class_name && <p>Lớp: {info.class_name}</p>}
         </div>
       )}
 
-      {Object.keys(schedule).length > 0 && (
-        <div>
-          <h5>{mode === "teacher" ? "Lịch giảng dạy" : "Lịch học"}</h5>
-          {renderTimetable()}
-        </div>
-      )}
-
+      {Object.keys(schedule).length > 0 && renderTimetable()}
       {renderSubjectsAndResults()}
     </div>
   );

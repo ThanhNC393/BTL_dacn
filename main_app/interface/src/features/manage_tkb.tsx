@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import api from "../apis";
 
 interface PersonInfo {
   address: string;
@@ -42,17 +43,10 @@ export default function LookupPage() {
 
   const fetchList = async () => {
     try {
-      const url =
-        mode === "teacher"
-          ? "http://127.0.0.1:5000/api/v1/get_teachers"
-          : "http://127.0.0.1:5000/api/v1/get_students";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      setList(data || {});
+      const endpoint = mode === "teacher" ? "/get_teachers" : "/get_students";
+
+      const res = await api.post(endpoint, {});
+      setList(res.data || {});
     } catch (err) {
       console.error("fetchList error", err);
       setList({});
@@ -77,51 +71,37 @@ export default function LookupPage() {
 
   const fetchInfo = async (id: string) => {
     if (!id) return;
+
     const selectedInfo = list[id] || null;
     setInfo(selectedInfo);
     setSubjects([]);
     setResults({});
 
+    // ===== LẤY TKB =====
     try {
-      const url =
-        mode === "teacher"
-          ? "http://127.0.0.1:5000/api/v1/get_tkb/teacher"
-          : "http://127.0.0.1:5000/api/v1/get_tkb/student";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      const data = await res.json();
-      setSchedule(data || {});
+      const endpoint =
+        mode === "teacher" ? "/get_tkb/teacher" : "/get_tkb/student";
+
+      const res = await api.post(endpoint, { id });
+      setSchedule(res.data || {});
     } catch (err) {
       console.error("fetchInfo schedule error", err);
       setSchedule({});
     }
 
-    // fetch subjects and results
+    // ===== LẤY MÔN + KẾT QUẢ =====
     try {
-      const subjUrl =
+      const subjectEndpoint =
         mode === "teacher"
-          ? "http://127.0.0.1:5000/api/v1/get_subject_of/teacher"
-          : "http://127.0.0.1:5000/api/v1/get_subject_of/student";
-      const subjRes = await fetch(subjUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([id]),
-      });
-      const subjData: string[] = await subjRes.json();
-      setSubjects(subjData || []);
+          ? "/get_subject_of/teacher"
+          : "/get_subject_of/student";
+
+      const subjRes = await api.post(subjectEndpoint, [id]);
+      setSubjects(subjRes.data || []);
 
       if (mode === "student") {
-        const resUrl = "http://127.0.0.1:5000/api/v1/get_result/student";
-        const resRes = await fetch(resUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify([id]),
-        });
-        const resData: StudentResult = await resRes.json();
-        setResults(resData || {});
+        const resRes = await api.post("/get_result/student", [id]);
+        setResults(resRes.data || {});
       }
     } catch (err) {
       console.error("fetch subjects/results error", err);
@@ -187,7 +167,7 @@ export default function LookupPage() {
       });
     });
 
-    const maxPeriods = 10;
+    const maxPeriods = 20;
 
     return (
       <div>
@@ -261,7 +241,7 @@ export default function LookupPage() {
             </thead>
             <tbody>
               {subjects.map((subj, idx) => (
-                <tr key={subj}>
+                <tr key={`${subj}-${idx}`}>
                   <td>{idx + 1}</td>
                   <td>{subj}</td>
                 </tr>
@@ -291,11 +271,13 @@ export default function LookupPage() {
               </tr>
             </thead>
             <tbody>
-              {subjects.map((subj) => (
-                <tr key={subj}>
+              {subjects.map((subj, subjIdx) => (
+                <tr key={`${subj}-${subjIdx}`}>
                   <td>{subj}</td>
                   {scoreColumns.map((col, idx) => (
-                    <td key={idx}>{results[subj]?.scores[idx] ?? "Chưa có"}</td>
+                    <td key={`${subj}-${idx}`}>
+                      {results[subj]?.scores[idx] ?? "Chưa có"}
+                    </td>
                   ))}
                 </tr>
               ))}

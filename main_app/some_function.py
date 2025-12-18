@@ -4,6 +4,12 @@ from .models import (
     Semester, User, Subject, Course
 )
 from datetime import datetime
+from functools import wraps
+from flask_jwt_extended import verify_jwt_in_request, get_jwt
+from flask import jsonify
+
+
+
 
 
 def get_days(number_of_classday: int, date_obj: date, target_weekday: list):
@@ -47,6 +53,16 @@ def insert_year(date, year):
     return None
 
 
+def check_duplicate(schedule, schedules):
+    print(schedule, schedules)
+    for sch in schedules:
+        for day, perior in sch.items():
+            if str(day) in schedule:
+                for per in perior:
+                    print(per, schedule[str(day)])
+                    if per in schedule[str(day)]:
+                        return False
+    return True
 
 
 def get_final_result(scores, scores_weights):
@@ -58,6 +74,16 @@ def get_final_result(scores, scores_weights):
     return sum_/100
 
 
+def get_gpa2(score):
+    if score >= 8.5: return 4
+    if score >= 7.7: return 3.5
+    if score >= 7.0: return 3
+    if score >= 6.2: return 2.5
+    if score >= 5.5: return 2
+    if score >= 4.7: return 1.5
+    if score >= 4: return 1
+    return 0
+
 
 if __name__ == "__main__":
 
@@ -65,3 +91,23 @@ if __name__ == "__main__":
     days = get_days(number_of_classday=15, date_obj=today, target_weekday=[3, 6, 8])
     print(len(days))
     print(days)
+
+
+
+def role_required(*roles):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            verify_jwt_in_request()
+            claims = get_jwt()
+            user_role = claims.get("role")
+
+            if user_role not in roles:
+                return jsonify({
+                    "msg": "Forbidden",
+                    "required_roles": roles
+                }), 403
+
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper

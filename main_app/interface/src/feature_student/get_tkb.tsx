@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import api from "../apis";
 
 const DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 
@@ -20,18 +21,16 @@ export default function StudentSchedule() {
     }
   })();
 
+  // ================= FETCH =================
   const fetchSchedule = async () => {
     if (!schoolId) return;
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/v1/get_tkb/student", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: schoolId }),
+      const res = await api.post("/get_tkb/student", {
+        id: schoolId,
       });
-      const data = await res.json();
-      setSchedule(data || {});
+      setSchedule(res.data || {});
     } catch (err) {
-      console.error(err);
+      console.error("Fetch schedule error:", err);
       setSchedule({});
     }
   };
@@ -40,6 +39,7 @@ export default function StudentSchedule() {
     fetchSchedule();
   }, []);
 
+  // ================= DATE UTILS =================
   const getWeekStart = (): Date => {
     const now = new Date();
     const day = now.getDay(); // 0 Sun .. 6 Sat
@@ -57,6 +57,7 @@ export default function StudentSchedule() {
     return end;
   };
 
+  // ================= RENDER =================
   const renderTimetable = () => {
     const weekStart = getWeekStart();
     const weekEnd = getWeekEnd(weekStart);
@@ -66,7 +67,7 @@ export default function StudentSchedule() {
 
     Object.entries(schedule).forEach(([dateStr, subjects]) => {
       const date = new Date(dateStr + "T00:00:00");
-      if (Number.isNaN(date.getTime())) return;
+      if (isNaN(date.getTime())) return;
       if (date < weekStart || date > weekEnd) return;
 
       const weekday = date.getDay();
@@ -77,30 +78,31 @@ export default function StudentSchedule() {
         Object.entries(subjObj).forEach(([subject, periods]) => {
           periods.forEach((p) => {
             if (!timetable[dayName][p]) timetable[dayName][p] = [];
-            if (!timetable[dayName][p].includes(subject))
+            if (!timetable[dayName][p].includes(subject)) {
               timetable[dayName][p].push(subject);
+            }
           });
         });
       });
     });
 
-    const maxPeriods = 10;
+    const maxPeriods = 20;
 
     return (
-      <div>
-        <div className="d-flex justify-content-between mb-2 align-items-center">
+      <>
+        <div className="d-flex justify-content-between align-items-center mb-3">
           <button
             className="btn btn-outline-secondary"
             onClick={() => setWeekOffset((w) => w - 1)}
           >
             ◀ Tuần trước
           </button>
-          <div>
-            <strong>
-              Tuần {weekStart.toLocaleDateString()} -{" "}
-              {getWeekEnd(weekStart).toLocaleDateString()}
-            </strong>
-          </div>
+
+          <strong>
+            Tuần {weekStart.toLocaleDateString()} –{" "}
+            {weekEnd.toLocaleDateString()}
+          </strong>
+
           <button
             className="btn btn-outline-secondary"
             onClick={() => setWeekOffset((w) => w + 1)}
@@ -109,26 +111,33 @@ export default function StudentSchedule() {
           </button>
         </div>
 
-        <table className="table table-bordered mt-3 text-center">
-          <thead>
+        <table className="table table-bordered text-center align-middle">
+          <thead className="table-light">
             <tr>
-              <th>Tiết</th>
+              <th style={{ width: 80 }}>Tiết</th>
               {DAYS.map((d) => (
                 <th key={d}>{d}</th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {Array.from({ length: maxPeriods }, (_, i) => i + 1).map(
               (period) => (
-                <tr key={period}>
+                <tr key={`period-${period}`}>
                   <td>
                     <strong>{period}</strong>
                   </td>
+
                   {DAYS.map((day) => (
-                    <td key={day + period} style={{ verticalAlign: "middle" }}>
-                      {(timetable[day][period] || []).map((subj, idx) => (
-                        <div key={idx}>{subj}</div>
+                    <td key={`${day}-${period}`}>
+                      {(timetable[day][period] || []).map((subj) => (
+                        <div
+                          key={`${day}-${period}-${subj}`}
+                          className="fw-semibold"
+                        >
+                          {subj}
+                        </div>
                       ))}
                     </td>
                   ))}
@@ -137,17 +146,18 @@ export default function StudentSchedule() {
             )}
           </tbody>
         </table>
-      </div>
+      </>
     );
   };
 
+  // ================= MAIN =================
   return (
     <div className="container mt-4">
       <h3 className="mb-3">Lịch học</h3>
       {Object.keys(schedule).length > 0 ? (
         renderTimetable()
       ) : (
-        <p>Không có dữ liệu lịch.</p>
+        <p className="text-muted">Không có dữ liệu lịch.</p>
       )}
     </div>
   );

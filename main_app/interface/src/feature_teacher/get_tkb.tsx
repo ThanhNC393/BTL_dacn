@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import api from "../apis";
 
 const DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 
@@ -22,16 +23,15 @@ export default function TeacherSchedule() {
 
   const fetchSchedule = async () => {
     if (!schoolId) return;
+
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/v1/get_tkb/teacher", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: schoolId }),
+      const res = await api.post("/get_tkb/teacher", {
+        id: schoolId,
       });
-      const data = await res.json();
-      setSchedule(data || {});
+
+      setSchedule(res.data || {});
     } catch (err) {
-      console.error(err);
+      console.error("fetchSchedule error", err);
       setSchedule({});
     }
   };
@@ -84,7 +84,7 @@ export default function TeacherSchedule() {
       });
     });
 
-    const maxPeriods = 10;
+    const maxPeriods = 20;
 
     return (
       <div>

@@ -1,6 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import api from "../apis";
+
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 interface Course {
   course_id: string;
@@ -26,8 +38,10 @@ export default function TeacherSubjects() {
   >({});
 
   const teacherId = JSON.parse(localStorage.getItem("info") || "{}")?.school_id;
+  const [announcement, setAnnouncement] = useState("");
+  const [sending, setSending] = useState(false);
 
-  // --- Load courses ---
+  // ---------- LOAD COURSES ----------
   useEffect(() => {
     if (!teacherId) return;
     api
@@ -36,14 +50,13 @@ export default function TeacherSubjects() {
       .catch(console.error);
   }, [teacherId]);
 
-  // --- Load students of selected course ---
+  // ---------- LOAD STUDENTS ----------
   useEffect(() => {
     if (!selectedCourse) return;
     api
       .post("/get_students_of_course", [selectedCourse.course_id])
       .then((res) => {
         setStudents(res.data || []);
-        // init editedScores
         const initScores: Record<string, Record<string, number | null>> = {};
         res.data.forEach((stu: Student) => {
           initScores[stu.student_id] = {};
@@ -71,6 +84,28 @@ export default function TeacherSubjects() {
     }));
   };
 
+  const handleSendAnnouncement = async () => {
+    if (!selectedCourse) return;
+    if (!announcement.trim()) {
+      alert("Vui lòng nhập nội dung thông báo!");
+      return;
+    }
+
+    try {
+      setSending(true);
+      const payload = [selectedCourse.course_id, announcement.trim()];
+
+      await api.post("/announcement", payload);
+      alert("Đã gửi thông báo cho sinh viên!");
+      setAnnouncement("");
+    } catch (err) {
+      console.error(err);
+      alert("Gửi thông báo thất bại!");
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleSaveScores = async () => {
     if (!selectedCourse) return;
     try {
@@ -91,11 +126,78 @@ export default function TeacherSubjects() {
     setEditedScores({});
   };
 
-  // --- RENDER ---
+  // ================= GPA LOGIC =================
+
+  const scoreToGPA = (score: number | null) => {
+    if (score === null) return null;
+    if (score >= 8.5) return "A";
+    if (score >= 7.7) return "B+";
+    if (score >= 7.0) return "B";
+    if (score >= 6.2) return "C+";
+    if (score >= 5.5) return "C";
+    if (score >= 4.7) return "D+";
+    if (score >= 4.0) return "D";
+    return "F";
+  };
+
+  const gpaOrder = ["A", "B+", "B", "C+", "C", "D+", "D", "F"];
+
+  const gpaStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    gpaOrder.forEach((g) => (stats[g] = 0));
+
+    students.forEach((stu) => {
+      const gpa = scoreToGPA(stu.final_result);
+      if (gpa) stats[gpa]++;
+    });
+
+    return stats;
+  }, [students]);
+
+  // ---------- DATA FOR BAR CHART ----------
+  const barData = {
+    labels: gpaOrder,
+    datasets: [
+      {
+        label: "Số sinh viên",
+        data: gpaOrder.map((g) => gpaStats[g]),
+        backgroundColor: "#0d6efd",
+      },
+    ],
+  };
+
+  const barOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+        title: {
+          display: true,
+          text: "Số sinh viên",
+        },
+      },
+      x: {
+        title: {
+          display: true,
+          text: "Xếp loại",
+        },
+      },
+    },
+  };
+
+  // ================= RENDER =================
+
   if (!teacherId) return <p>Không tìm thấy thông tin giảng viên.</p>;
 
   if (!selectedCourse) {
-    // màn hình danh sách môn học
     return (
       <div className="container mt-4">
         <h3>Môn giảng dạy</h3>
@@ -118,7 +220,6 @@ export default function TeacherSubjects() {
     );
   }
 
-  // màn hình chi tiết môn học
   return (
     <div className="container mt-4">
       <div className="card shadow-sm">
@@ -131,6 +232,7 @@ export default function TeacherSubjects() {
             {selectedCourse.subject_name} - {selectedCourse.semester}
           </h4>
 
+          {/* ===== TABLE ===== */}
           <div className="table-responsive">
             <table className="table table-bordered table-hover table-striped align-middle text-center">
               <thead className="table-light">
@@ -156,12 +258,7 @@ export default function TeacherSubjects() {
                           type="number"
                           min={0}
                           max={10}
-                          className={`form-control ${
-                            editedScores[stu.student_id]?.[sName] === null
-                              ? "bg-warning"
-                              : ""
-                          }`}
-                          placeholder="Chưa nhập"
+                          className="form-control"
                           value={editedScores[stu.student_id]?.[sName] ?? ""}
                           onChange={(e) =>
                             handleScoreChange(
@@ -180,10 +277,38 @@ export default function TeacherSubjects() {
             </table>
           </div>
 
-          <div className="d-flex justify-content-end mt-3">
+          <div className="d-flex justify-content-end mt-4">
             <button className="btn btn-primary" onClick={handleSaveScores}>
               Lưu điểm
             </button>
+          </div>
+
+          {/* 🔔 ANNOUNCEMENT */}
+          <div className="card my-4 shadow-sm">
+            <div className="card-body">
+              <h5>📢 Gửi thông báo cho lớp</h5>
+              <textarea
+                className="form-control mt-2"
+                rows={3}
+                placeholder="Nhập nội dung thông báo..."
+                value={announcement}
+                onChange={(e) => setAnnouncement(e.target.value)}
+              />
+              <div className="text-end mt-2">
+                <button
+                  className="btn btn-warning"
+                  onClick={handleSendAnnouncement}
+                  disabled={sending}
+                >
+                  {sending ? "Đang gửi..." : "Gửi thông báo"}
+                </button>
+              </div>
+            </div>
+          </div>
+          {/* ===== BAR CHART GPA ===== */}
+          <div className="mt-5">
+            <h5 className="mb-3">📊 Thống kê điểm </h5>
+            <Bar data={barData} options={barOptions} />
           </div>
         </div>
       </div>

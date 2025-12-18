@@ -14,6 +14,7 @@ import StudentSchedule from "../feature_student/get_tkb";
 import StudentCourses from "../feature_student/manage_subject";
 import CourseRegistration from "../feature_student/register_coures";
 import AttendanceComponent from "../feature_teacher/roll_call";
+import StudentAnnouncements from "../feature_student/announcements";
 
 interface tmp {
   role_name: string;
@@ -36,7 +37,7 @@ function Menu_template({ role_name, menuItems, role }: tmp) {
   switch (role) {
     case 0: {
       pages_ = [
-        <Info data_={data_} setNum={setBadgeCount} />,
+        <Info data_={data_} setUserInfo={setBadgeCount} />,
         <RowList data={data_} setNum={setBadgeCount} />,
         <SearchInfo />,
         <TeacherSchedule />,
@@ -47,17 +48,18 @@ function Menu_template({ role_name, menuItems, role }: tmp) {
     }
     case 1: {
       pages_ = [
-        <Info data_={data_} setNum={setBadgeCount} />,
+        <Info data_={data_} setUserInfo={setBadgeCount} />,
         <RowList data={data_} setNum={setBadgeCount} />,
         <StudentSchedule />,
         <StudentCourses />,
         <CourseRegistration />,
+        <StudentAnnouncements />,
       ];
       break;
     }
     default: {
       pages_ = [
-        <Info data_={data_} setNum={setBadgeCount} />,
+        <Info data_={data_} setUserInfo={setBadgeCount} />,
         <RowList data={data_} setNum={setBadgeCount} />,
         <StudentTeacherLookup />,
         <AccountUserManager />,

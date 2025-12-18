@@ -80,7 +80,7 @@ const AccountManager: React.FC = () => {
       const newAcc: Account[] = res.data || [];
 
       setAccountList([...accountList, ...newAcc]);
-      setFormData({});
+      // setFormData({});
       alert("Thêm thành công!");
     } catch {
       alert("Lỗi khi thêm!");

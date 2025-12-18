@@ -38,6 +38,9 @@ export default function CourseManager() {
 
   const [courses, setCourses] = useState<Record<string, any>>({});
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Course | null>(null);
+
   // Load teachers
   useEffect(() => {
     api
@@ -121,6 +124,40 @@ export default function CourseManager() {
     } catch (err) {
       console.error(err);
       alert("Thêm khóa học thất bại!");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editData) return;
+
+    try {
+      const payload = {
+        [editingId]: {
+          semester_id: editData.semester_id,
+          teacher_id: editData.teacher_id,
+          subject_id: editData.subject_id,
+          cost: editData.cost,
+          class_day: editData.class_day || {},
+        },
+      };
+      console.log(payload);
+      await api.post("/change_info_course", payload);
+
+      // update UI local
+      setCourses((prev) => ({
+        ...prev,
+        [editingId]: {
+          ...prev[editingId],
+          ...editData,
+        },
+      }));
+
+      setEditingId(null);
+      setEditData(null);
+      alert("Cập nhật khóa học thành công!");
+    } catch (err) {
+      console.error(err);
+      alert("Cập nhật khóa học thất bại!");
     }
   };
 
@@ -277,23 +314,131 @@ export default function CourseManager() {
       {/* Course List */}
       <h5 className="mt-4">Danh sách khóa học</h5>
       <div className="mt-2">
-        {Object.entries(courses).map(([key, item]) => (
-          <div
-            key={key}
-            className="p-2 border rounded d-flex justify-content-between mt-2"
-          >
-            <span>{key}</span>
-            <div>
-              <button className="btn btn-warning btn-sm me-2">Sửa</button>
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => handleDelete(key)}
-              >
-                Xóa
-              </button>
+        {Object.entries(courses).map(([key, item]) => {
+          const isEditing = editingId === key;
+
+          return (
+            <div
+              key={key}
+              className="p-2 border rounded d-flex justify-content-between mt-2"
+            >
+              <div className="flex-grow-1 me-3">
+                {isEditing && editData ? (
+                  <>
+                    <select
+                      className="form-select mb-2"
+                      value={editData.subject_id}
+                      onChange={(e) =>
+                        setEditData({ ...editData, subject_id: e.target.value })
+                      }
+                    >
+                      {subjects.map((s) => (
+                        <option key={s.subject_code} value={s.subject_code}>
+                          {s.subject_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="form-select mb-2"
+                      value={editData.teacher_id}
+                      onChange={(e) =>
+                        setEditData({ ...editData, teacher_id: e.target.value })
+                      }
+                    >
+                      {teachers.map((t) => (
+                        <option key={t.school_id} value={t.school_id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="form-select mb-2"
+                      value={editData.semester_id}
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          semester_id: e.target.value,
+                        })
+                      }
+                    >
+                      {semesters.map((s) => (
+                        <option key={s.semester_id} value={s.semester_id}>
+                          {s.semester_id}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      className="form-control mb-2"
+                      value={editData.cost}
+                      onChange={(e) =>
+                        setEditData({ ...editData, cost: e.target.value })
+                      }
+                    />
+
+                    <input
+                      className="form-control"
+                      placeholder="VD: 4:[7,8,9]; 6:[9,10,11]"
+                      value={Object.entries(editData.class_day || {})
+                        .map(([k, v]) => `${k}:[${v.join(",")}]`)
+                        .join("; ")}
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          class_day: parseClassDay(e.target.value),
+                        })
+                      }
+                    />
+                  </>
+                ) : (
+                  <span>{key}</span>
+                )}
+              </div>
+
+              <div>
+                {isEditing ? (
+                  <>
+                    <button
+                      className="btn btn-success btn-sm me-2"
+                      onClick={handleSaveEdit}
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditData(null);
+                      }}
+                    >
+                      Hủy
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="btn btn-warning btn-sm me-2"
+                      onClick={() => {
+                        setEditingId(key);
+                        setEditData(item);
+                      }}
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(key)}
+                    >
+                      Xóa
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

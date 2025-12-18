@@ -2,11 +2,11 @@ from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import (
-    Column, Integer, ForeignKey, String, Date, Boolean, Float
+    Column, Integer, ForeignKey, String, Date, Boolean, Float, JSON
 )
 from sqlalchemy.orm import validates 
-from datetime import datetime
-
+# from datetime import datetime
+# from sqlalchemy.ext.declarative import declarative_base
 
     
 class Account(db.Model):
@@ -41,16 +41,6 @@ class Class(db.Model):
     id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=False, unique=True)
     estab_date = Column(Date)
-
-
-    # @validates("name", "estab_date")
-    # def validatee(self, key, value):
-    #     if key == "name":
-    #         year = self.estab_date
-    #         print("***", year)
-    #     else:
-    #         pass
-        # return value
 
 
     def get_class(name):
@@ -202,6 +192,7 @@ class Course(db.Model):
     subject_id = Column(Integer, ForeignKey('subject.id', ondelete="CASCADE"))
     course_id = Column(String(50), unique=True)
     cost = Column(Integer)
+    schedule = Column(JSON)
 
     def get_course(course_id):
         course = Course.query.filter_by(course_id = course_id).first()
@@ -247,7 +238,7 @@ class DayOff(db.Model):
 
     id = Column(Integer, primary_key=True)
     result_id = Column(Integer, ForeignKey('result.id'))
-    class_day_id = Column(Integer, ForeignKey('class_day.id'))
+    class_day_id = Column(Integer, ForeignKey('class_day.id', ondelete = "CASCADE"))
 
 
 class Change_Info_Request(db.Model):
@@ -262,6 +253,15 @@ class Change_Info_Request(db.Model):
     status = Column(Boolean)
 
     school_id = Column(String(15), ForeignKey('user.school_id'))
+
+
+class Announcement(db.Model):
+
+    id = Column(Integer, primary_key=True)
+    content = Column(String(500))
+    day_upload = Column(Date)
+    course_id = Column(String(50), ForeignKey("course.course_id", ondelete="CASCADE"))
+
 
 
 
@@ -282,10 +282,12 @@ Course.teacher = db.relationship('User')
 Course.subject = db.relationship('Subject', back_populates='courses')
 Course.results = db.relationship('Result', back_populates='course')
 Course.class_days = db.relationship('ClassDay', back_populates='course', passive_deletes = True)
+Course.announcement = db.relationship('Announcement', back_populates='course', passive_deletes = True)
+
 
 
 ClassDay.course = db.relationship('Course', back_populates='class_days')
-ClassDay.day_offs = db.relationship('DayOff', back_populates='class_day')
+ClassDay.day_offs = db.relationship('DayOff', back_populates='class_day', passive_deletes = True)
 
 
 Result.student = db.relationship('User', back_populates='results')
@@ -297,3 +299,5 @@ DayOff.class_day = db.relationship('ClassDay', back_populates='day_offs')
 
 Change_Info_Request.user = db.relationship('User', back_populates='change_info_request', uselist=False)
 User.change_info_request = db.relationship('Change_Info_Request', back_populates='user', uselist=False)
+
+Announcement.course = db.relationship('Course', back_populates='announcement')
