@@ -284,9 +284,14 @@ def get_course2():
     for result in results:
         schedules.append(result.course.schedule)
 
+    list_course = []
+    for result in results:
+        list_course.append(result.course.subject.subject_name)
+        print(list_course)
+
     data = dict()
     for course in courses:
-        if check_duplicate(course.schedule, schedules):
+        if check_duplicate(course.schedule, schedules) and course.subject.subject_name not in list_course:
             data[course.course_id] = {
                 "semester_id": course.semester.semester_id,
                 "teacher_id": course.teacher.name,
